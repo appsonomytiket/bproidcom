@@ -12,9 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  DollarSign, Users, Gift, UserCircle, LogOut, Link as LinkIcon, 
+  DollarSign, Users, Gift, UserCircle, Link as LinkIcon, 
   TrendingUp, Wallet, ExternalLink, ShoppingCart, Search, ClipboardCopy 
-} from "lucide-react";
+} from "lucide-react"; // LogOut icon removed as the button is removed
 import { Separator } from "@/components/ui/separator";
 import { CopyButton } from "@/components/dashboard/CopyButton";
 import { useToast } from "@/hooks/use-toast";
@@ -94,13 +94,7 @@ export default function AffiliateDashboardPage() {
             Selamat datang! Di sini Anda dapat membuat tautan afiliasi unik, melacak kinerja, dan mengelola penghasilan Anda dengan BPro Tiket.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <UserCircle className="h-6 w-6 text-muted-foreground" />
-          <span className="font-medium">{affiliate.name}</span>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={() => alert('Fungsi Keluar belum diimplementasikan.')}>
-            <LogOut className="mr-1 h-4 w-4" /> Keluar
-          </Button>
-        </div>
+        {/* Bagian nama pengguna dan tombol keluar dihapus dari sini */}
       </div>
 
       {/* Stats Cards */}
@@ -340,3 +334,5 @@ export default function AffiliateDashboardPage() {
     </div>
   );
 }
+
+    
