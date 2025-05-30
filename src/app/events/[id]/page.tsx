@@ -1,8 +1,8 @@
 
-"use client"; // Make this a client component
+"use client"; 
 
 import Image from "next/image";
-import React, { useEffect, useState } from "react"; // Import React for React.use
+import React, { useEffect, useState } from "react"; 
 import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; 
 import type { Event } from "@/lib/types";
 import { BookingForm } from "@/components/booking/BookingForm";
@@ -16,7 +16,6 @@ interface EventDetailPageProps {
   params: { id: string };
 }
 
-// This function will now be used client-side
 function getEventByIdClientSide(id: string): Event | undefined {
   let allEvents: Event[] = [];
   if (typeof window !== 'undefined') {
@@ -26,15 +25,12 @@ function getEventByIdClientSide(id: string): Event | undefined {
         allEvents = JSON.parse(storedEventsString);
       } catch (e) {
         console.error("Gagal mem-parse acara dari localStorage", e);
-        // Fallback to MOCK_EVENTS if localStorage is corrupted
         allEvents = MOCK_EVENTS;
       }
     } else {
-      // If localStorage is empty, use MOCK_EVENTS (though manage-events page should seed it)
       allEvents = MOCK_EVENTS;
     }
   } else {
-    // Fallback for environments where localStorage is not available (should not happen in browser)
     allEvents = MOCK_EVENTS;
   }
   
@@ -42,25 +38,22 @@ function getEventByIdClientSide(id: string): Event | undefined {
   if (eventFromStorage) {
     return eventFromStorage;
   }
-  // If not in localStorage (e.g. direct navigation to a MOCK_EVENT not yet in localStorage)
-  // check MOCK_EVENTS as a final fallback.
   return MOCK_EVENTS.find((event) => event.id === id);
 }
 
 
 export default function EventDetailPage(props: EventDetailPageProps) {
-  // As per Next.js warning, props.params might be a Promise. Use React.use to unwrap.
   const resolvedParams = React.use(props.params);
   const eventId = resolvedParams.id;
 
-  const [event, setEvent] = useState<Event | null | undefined>(undefined); // undefined for loading, null for not found
+  const [event, setEvent] = useState<Event | null | undefined>(undefined); 
 
   useEffect(() => {
     if (eventId) {
       const foundEvent = getEventByIdClientSide(eventId);
-      setEvent(foundEvent || null); // Set to null if not found
+      setEvent(foundEvent || null); 
     }
-  }, [eventId]); // Depend on the resolved eventId
+  }, [eventId]); 
 
   if (event === undefined) {
     return (
@@ -81,6 +74,7 @@ export default function EventDetailPage(props: EventDetailPageProps) {
   }
 
   const displayPrice = event.priceTiers && event.priceTiers.length > 0 ? event.priceTiers[0].price : 0;
+  const formattedDate = event.date ? format(new Date(event.date), "EEEE, d MMMM yyyy 'pukul' HH:mm", { locale: idLocale }) : "Tanggal tidak tersedia";
 
   return (
     <div className="container py-12">
@@ -90,12 +84,12 @@ export default function EventDetailPage(props: EventDetailPageProps) {
             <CardHeader className="p-0">
               <div className="relative h-64 w-full md:h-96">
                 <Image
-                  src={event.imageUrl}
+                  src={event.imageUrl || "https://placehold.co/600x400.png"} // Fallback
                   alt={event.name}
-                  fill // Use fill instead of layout="fill"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Provide sizes prop
-                  style={{ objectFit: "cover" }} // Use style for objectFit
-                  data-ai-hint={`${event.category.toLowerCase()} event`}
+                  fill 
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 67vw, 50vw" // Adjusted sizes
+                  style={{ objectFit: "cover" }} 
+                  data-ai-hint={event.category ? event.category.toLowerCase() : "event"}
                   priority
                 />
               </div>
@@ -110,7 +104,7 @@ export default function EventDetailPage(props: EventDetailPageProps) {
                   <CalendarDays className="mr-3 mt-1 h-5 w-5 flex-shrink-0 text-accent" />
                   <div>
                     <span className="font-semibold text-foreground">Tanggal & Waktu</span>
-                    <p>{format(new Date(event.date), "EEEE, d MMMM yyyy 'pukul' HH:mm", { locale: idLocale })} WIB</p>
+                    <p>{formattedDate} WIB</p>
                   </div>
                 </div>
                 <div className="flex items-start">
@@ -175,12 +169,9 @@ export default function EventDetailPage(props: EventDetailPageProps) {
                         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
                           <div>
                             <h3 className="text-lg font-semibold text-primary">{tier.name}</h3>
-                            {/* Tambahkan deskripsi singkat tier jika ada */}
-                            {/* <p className="text-sm text-muted-foreground">Deskripsi singkat untuk tier ini.</p> */}
                           </div>
                           <div className="text-left sm:text-right">
                              <p className="text-xl font-bold text-accent">Rp {tier.price.toLocaleString()}</p>
-                             {/* <p className="text-xs text-muted-foreground">per tiket</p> */}
                           </div>
                         </CardContent>
                       </Card>

@@ -19,7 +19,17 @@ export function EventCard({ event }: EventCardProps) {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    setFormattedDate(format(new Date(event.date), "PPPp", { locale: idLocale }));
+    // Ensure event.date is valid before formatting
+    if (event.date) {
+      try {
+        setFormattedDate(format(new Date(event.date), "PPPp", { locale: idLocale }));
+      } catch (error) {
+        console.error("Error formatting date:", event.date, error);
+        setFormattedDate("Tanggal tidak valid");
+      }
+    } else {
+      setFormattedDate("Tanggal tidak tersedia");
+    }
   }, [event.date]);
 
   const displayPrice = event.priceTiers && event.priceTiers.length > 0
@@ -35,11 +45,12 @@ export function EventCard({ event }: EventCardProps) {
       <CardHeader className="p-0">
         <div className="relative h-48 w-full">
           <Image
-            src={event.imageUrl}
+            src={event.imageUrl || "https://placehold.co/600x400.png"} // Fallback if imageUrl is somehow empty
             alt={event.name}
-            layout="fill"
-            objectFit="cover"
-            data-ai-hint={`${event.category} event`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" // Adjusted sizes
+            style={{ objectFit: "cover" }}
+            data-ai-hint={event.category ? event.category.toLowerCase() : "event"}
           />
         </div>
       </CardHeader>
