@@ -1,5 +1,5 @@
 
-import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData } from './types';
+import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData, AdminWithdrawalRequest } from './types';
 
 // Note: Translating mock data can be extensive. 
 // Only highly visible "status" like fields are translated here.
@@ -106,12 +106,12 @@ export const MOCK_AFFILIATE_DATA: Affiliate = {
   referralCode: 'CITRA789REF',
   totalEarnings: 1250000,
   withdrawalHistory: [
-    { date: '2024-06-15', amount: 500000, status: 'Completed' }, // 'Completed' maps to 'Selesai' in AffiliateDashboardPage
-    { date: '2024-07-10', amount: 750000, status: 'Processing' }, // 'Processing' maps to 'Diproses' in AffiliateDashboardPage
+    { date: '2024-06-15T10:00:00Z', amount: 500000, status: 'Completed' }, 
+    { date: '2024-07-10T14:00:00Z', amount: 750000, status: 'Processing' }, 
   ],
   referredSales: [
-    { bookingId: 'BK003', eventName: 'Konser Musik Merdeka', commission: 75000, date: '2024-07-25' },
-    { bookingId: 'BK004', eventName: 'Workshop Digital Marketing', commission: 150000, date: '2024-07-28' },
+    { bookingId: 'BK003', eventName: 'Konser Musik Merdeka', commission: 75000, date: '2024-07-25T10:00:00Z' },
+    { bookingId: 'BK004', eventName: 'Workshop Digital Marketing', commission: 150000, date: '2024-07-28T10:00:00Z' },
   ],
 };
 
@@ -163,8 +163,15 @@ export const MOCK_RECENT_BOOKINGS_ADMIN: Booking[] = [
   },
 ];
 
-export const MOCK_TOP_AFFILIATES_ADMIN: Omit<Affiliate, 'withdrawalHistory' | 'referredSales' | 'email'>[] = [
-  { id: 'AFF001', name: 'Citra Lestari', referralCode: 'CITRA789REF', totalEarnings: 1250000 },
-  { id: 'AFF002', name: 'Rian Hidayat', referralCode: 'RIANXYZREF', totalEarnings: 980000 },
-  { id: 'AFF003', name: 'Siti Aminah', referralCode: 'SITI123REF', totalEarnings: 750000 },
+export const MOCK_TOP_AFFILIATES_ADMIN: Pick<Affiliate, 'id' | 'name' | 'referralCode' | 'totalEarnings' | 'email'>[] = [
+  { id: 'AFF001', name: 'Citra Lestari', email: 'citra.lestari@example.com', referralCode: 'CITRA789REF', totalEarnings: 1250000 },
+  { id: 'AFF002', name: 'Rian Hidayat', email: 'rian.hidayat@example.com', referralCode: 'RIANXYZREF', totalEarnings: 980000 },
+  { id: 'AFF003', name: 'Siti Aminah', email: 'siti.aminah@example.com', referralCode: 'SITI123REF', totalEarnings: 750000 },
+];
+
+export const MOCK_ADMIN_WITHDRAWAL_REQUESTS: AdminWithdrawalRequest[] = [
+  { id: 'WR001', affiliateId: 'AFF001', affiliateName: 'Citra Lestari', date: '2024-07-20T10:00:00Z', amount: 750000, status: 'Pending' },
+  { id: 'WR002', affiliateId: 'AFF002', affiliateName: 'Rian Hidayat', date: '2024-07-22T14:30:00Z', amount: 500000, status: 'Approved' },
+  { id: 'WR003', affiliateId: 'AFF001', affiliateName: 'Citra Lestari', date: '2024-07-10T09:15:00Z', amount: 200000, status: 'Completed' },
+  { id: 'WR004', affiliateId: 'AFF003', affiliateName: 'Siti Aminah', date: '2024-07-25T11:00:00Z', amount: 300000, status: 'Rejected' },
 ];

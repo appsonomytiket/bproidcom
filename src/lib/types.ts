@@ -52,3 +52,12 @@ export interface AdminCommissionData {
   month: string;
   commissions: number;
 }
+
+export interface AdminWithdrawalRequest {
+  id: string; // Withdrawal ID
+  affiliateId: string;
+  affiliateName: string;
+  date: string; // ISO string date
+  amount: number;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed'; // Admin-centric statuses
+}
