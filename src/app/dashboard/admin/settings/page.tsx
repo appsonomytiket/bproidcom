@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SlidersHorizontal, BarChart2, Banknote, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react"; // Added useEffect
 
 const analyticsFormSchema = z.object({
   metaPixelId: z.string().optional(),
@@ -41,6 +41,10 @@ type PaymentFormValues = z.infer<typeof paymentFormSchema>;
 const LOCAL_STORAGE_ANALYTICS_KEY = 'bproid_admin_analytics_settings';
 const LOCAL_STORAGE_PAYMENT_KEY = 'bproid_admin_payment_settings';
 
+// Static initial default values
+const initialAnalyticsDefaultValues: AnalyticsFormValues = { metaPixelId: "", googleAnalyticsId: "" };
+const initialPaymentDefaultValues: PaymentFormValues = { bankName: "", accountNumber: "", accountHolderName: "", whatsappConfirmationNumber: "" };
+
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -49,25 +53,39 @@ export default function SettingsPage() {
 
   const analyticsForm = useForm<AnalyticsFormValues>({
     resolver: zodResolver(analyticsFormSchema),
-    defaultValues: () => {
-      if (typeof window !== 'undefined') {
-        const storedSettings = localStorage.getItem(LOCAL_STORAGE_ANALYTICS_KEY);
-        return storedSettings ? JSON.parse(storedSettings) : { metaPixelId: "", googleAnalyticsId: "" };
-      }
-      return { metaPixelId: "", googleAnalyticsId: "" };
-    },
+    defaultValues: initialAnalyticsDefaultValues, // Use static initial values
   });
 
   const paymentForm = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
-     defaultValues: () => {
-      if (typeof window !== 'undefined') {
-        const storedSettings = localStorage.getItem(LOCAL_STORAGE_PAYMENT_KEY);
-        return storedSettings ? JSON.parse(storedSettings) : { bankName: "", accountNumber: "", accountHolderName: "", whatsappConfirmationNumber: "" };
-      }
-      return { bankName: "", accountNumber: "", accountHolderName: "", whatsappConfirmationNumber: "" };
-    },
+    defaultValues: initialPaymentDefaultValues, // Use static initial values
   });
+
+  // Load values from localStorage in useEffect
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedAnalyticsSettings = localStorage.getItem(LOCAL_STORAGE_ANALYTICS_KEY);
+      if (storedAnalyticsSettings) {
+        try {
+          analyticsForm.reset(JSON.parse(storedAnalyticsSettings));
+        } catch (e) {
+          console.error("Gagal mem-parse pengaturan analitik dari localStorage:", e);
+          // Optionally reset to initial defaults or notify user
+        }
+      }
+
+      const storedPaymentSettings = localStorage.getItem(LOCAL_STORAGE_PAYMENT_KEY);
+      if (storedPaymentSettings) {
+        try {
+          paymentForm.reset(JSON.parse(storedPaymentSettings));
+        } catch (e) {
+          console.error("Gagal mem-parse pengaturan pembayaran dari localStorage:", e);
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array ensures this runs once on mount. analyticsForm and paymentForm are stable.
+
 
   function onAnalyticsSubmit(values: AnalyticsFormValues) {
     startAnalyticsTransition(() => {
@@ -229,5 +247,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
