@@ -23,6 +23,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useTransition } from "react";
 import { formatISO } from "date-fns";
+import type { Event } from "@/lib/types"; // Import Event type
+import { MOCK_EVENTS } from "@/lib/constants"; // Import MOCK_EVENTS for initial seeding if needed
 
 const priceTierSchema = z.object({
   name: z.string().min(1, { message: "Nama tier harus diisi." }),
@@ -42,6 +44,8 @@ const addEventFormSchema = z.object({
 });
 
 type AddEventFormValues = z.infer<typeof addEventFormSchema>;
+
+const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
 
 export default function AddEventPage() {
   const router = useRouter();
@@ -70,22 +74,47 @@ export default function AddEventPage() {
   function onSubmit(values: AddEventFormValues) {
     startTransition(async () => {
       const newEventId = `evt-${Date.now()}`;
-      const newEvent = {
+      const newEvent: Event = { // Ensure newEvent conforms to the Event type
         id: newEventId,
-        ...values,
+        name: values.name,
         date: formatISO(values.date),
+        location: values.location,
+        priceTiers: values.priceTiers,
+        description: values.description,
         imageUrl: values.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(values.name)}`,
+        organizer: values.organizer,
+        category: values.category,
+        availableTickets: values.availableTickets,
       };
 
-      console.log("Acara Baru (Simulasi):", newEvent);
-      
-      toast({
-        title: "Acara Ditambahkan (Simulasi)",
-        description: `${values.name} telah berhasil ditambahkan (simulasi).`,
-        action: <Check className="h-5 w-5 text-green-500" />,
-      });
+      // Save to localStorage
+      try {
+        const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
+        let allEvents: Event[] = [];
+        if (storedEventsString) {
+          allEvents = JSON.parse(storedEventsString);
+        }
+        // If localStorage was empty, ManageEventsPage will seed it with MOCK_EVENTS on its first load.
+        // Here, we just add to whatever exists or an empty array.
+        const updatedEvents = [...allEvents, newEvent];
+        localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(updatedEvents));
+        
+        toast({
+          title: "Acara Ditambahkan",
+          description: `${values.name} telah berhasil ditambahkan dan disimpan (secara lokal).`,
+          action: <Check className="h-5 w-5 text-green-500" />,
+        });
 
-      router.push("/dashboard/admin/manage-events");
+        router.push("/dashboard/admin/manage-events");
+
+      } catch (error) {
+        console.error("Gagal menyimpan acara ke localStorage:", error);
+        toast({
+          title: "Gagal Menyimpan Acara",
+          description: "Terjadi masalah saat menyimpan acara secara lokal.",
+          variant: "destructive",
+        });
+      }
     });
   }
 
@@ -252,7 +281,7 @@ export default function AddEventPage() {
                     <FormControl>
                       <Input placeholder="https://contoh.com/gambar.jpg" {...field} />
                     </FormControl>
-                    <FormDescription>Jika kosong, placeholder akan digunakan.</FormDescription>
+                    <FormDescription>Jika kosong, placeholder akan digunakan. Pastikan URL valid jika diisi.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -302,3 +331,4 @@ export default function AddEventPage() {
     </div>
   );
 }
+
