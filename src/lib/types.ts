@@ -9,8 +9,7 @@ export interface Event {
   name: string;
   date: string;
   location: string;
-  // price: number; // Removed single price
-  priceTiers: EventPriceTier[]; // Added multi-tier pricing
+  priceTiers: EventPriceTier[];
   description: string;
   imageUrl: string;
   organizer: string;
@@ -28,9 +27,9 @@ export interface Booking {
   totalPrice: number;
   bookingDate: string;
   paymentStatus: 'pending' | 'paid' | 'failed';
-  referralCode?: string; // Generated after booking
-  selectedTierName?: string; // Added for multi-tier
-  selectedTierPrice?: number; // Added for multi-tier
+  referralCode?: string;
+  selectedTierName?: string;
+  selectedTierPrice?: number;
 }
 
 export interface Affiliate {
@@ -69,8 +68,24 @@ export interface Coupon {
   discountValue: number;
   expiryDate: string; // ISO string date
   isActive: boolean;
-  usageLimit?: number; // Optional: total times the coupon can be used
-  timesUsed: number;   // How many times it has been used
-  minPurchase?: number; // Optional: minimum purchase amount
-  description?: string; // Optional: brief description of the coupon
+  usageLimit?: number;
+  timesUsed: number;
+  minPurchase?: number;
+  description?: string;
+}
+
+export type UserRole = 'admin' | 'affiliate' | 'customer';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  roles: UserRole[];
+  accountStatus: 'Aktif' | 'Ditangguhkan' | 'Tidak Aktif';
+  joinDate: string; // ISO string date
+  lastLogin?: string; // ISO string date or 'N/A'
+  totalPurchases: number;
+  ticketsPurchased: number;
+  affiliateCode?: string; // If user is an affiliate
 }

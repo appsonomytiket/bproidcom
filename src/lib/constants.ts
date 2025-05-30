@@ -1,10 +1,6 @@
 
-import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData, AdminWithdrawalRequest, Coupon } from './types';
-import { addMonths, formatISO } from 'date-fns';
-
-// Note: Translating mock data can be extensive. 
-// Only highly visible "status" like fields are translated here.
-// Full content translation of descriptions etc. should be handled as a content localization task.
+import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData, AdminWithdrawalRequest, Coupon, User } from './types';
+import { addMonths, formatISO, subDays } from 'date-fns';
 
 export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
 export const LOCAL_STORAGE_COUPONS_KEY = 'bproid_managed_coupons';
@@ -82,7 +78,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     selectedTierPrice: 150000,
     totalPrice: 300000,
     bookingDate: '2024-07-20T10:00:00Z',
-    paymentStatus: 'pending', // 'pending' maps to 'Tertunda' in AdminRecentBookingsTable
+    paymentStatus: 'pending',
     referralCode: 'ANDI123XYZ',
   },
   {
@@ -96,7 +92,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     selectedTierPrice: 750000,
     totalPrice: 750000,
     bookingDate: '2024-07-22T14:30:00Z',
-    paymentStatus: 'paid', // 'paid' maps to 'Lunas' in AdminRecentBookingsTable
+    paymentStatus: 'paid',
     referralCode: 'BUDI456ABC',
   },
 ];
@@ -184,7 +180,7 @@ export const MOCK_COUPONS: Coupon[] = [
     code: 'HEMAT20',
     discountType: 'percentage',
     discountValue: 20,
-    expiryDate: formatISO(addMonths(new Date(), 1)), // Expires in 1 month
+    expiryDate: formatISO(addMonths(new Date(), 1)),
     isActive: true,
     timesUsed: 5,
     usageLimit: 100,
@@ -196,7 +192,7 @@ export const MOCK_COUPONS: Coupon[] = [
     code: 'DISKON50K',
     discountType: 'fixed',
     discountValue: 50000,
-    expiryDate: formatISO(addMonths(new Date(), 2)), // Expires in 2 months
+    expiryDate: formatISO(addMonths(new Date(), 2)),
     isActive: true,
     timesUsed: 12,
     minPurchase: 200000,
@@ -207,10 +203,76 @@ export const MOCK_COUPONS: Coupon[] = [
     code: 'LAUNCHNEW',
     discountType: 'percentage',
     discountValue: 15,
-    expiryDate: formatISO(addMonths(new Date(), -1)), // Expired last month
+    expiryDate: formatISO(addMonths(new Date(), -1)),
     isActive: false,
     timesUsed: 50,
     usageLimit: 50,
     description: 'Kupon peluncuran (kadaluwarsa)',
+  },
+];
+
+export const MOCK_USERS: User[] = [
+  {
+    id: 'usr_001',
+    name: 'Adam',
+    email: 'adamtest123@mailnesia.com',
+    avatarUrl: 'https://placehold.co/40x40.png',
+    roles: ['affiliate'],
+    accountStatus: 'Aktif',
+    joinDate: formatISO(subDays(new Date(), 60)), // Joined 60 days ago
+    lastLogin: 'N/A',
+    totalPurchases: 0,
+    ticketsPurchased: 0,
+    affiliateCode: 'ADAMXYZ',
+  },
+  {
+    id: 'usr_002',
+    name: 'Budi Santoso',
+    email: 'budisantoso@mailnesia.com',
+    avatarUrl: 'https://placehold.co/40x40.png',
+    roles: ['customer', 'affiliate'],
+    accountStatus: 'Aktif',
+    joinDate: formatISO(subDays(new Date(), 30)), // Joined 30 days ago
+    lastLogin: formatISO(subDays(new Date(), 2)), // Last login 2 days ago
+    totalPurchases: 350000,
+    ticketsPurchased: 2,
+    affiliateCode: 'BUDIREF',
+  },
+  {
+    id: 'usr_003',
+    name: 'Admin Webmaster',
+    email: 'zanuradigital@gmail.com',
+    avatarUrl: 'https://placehold.co/40x40.png',
+    roles: ['admin', 'affiliate'],
+    accountStatus: 'Aktif',
+    joinDate: formatISO(subDays(new Date(), 120)), // Joined 120 days ago
+    lastLogin: formatISO(new Date()), // Last login today
+    totalPurchases: 0,
+    ticketsPurchased: 0,
+    affiliateCode: 'AFFADMINXYZ',
+  },
+  {
+    id: 'usr_004',
+    name: 'Citra Ayu',
+    email: 'citra.ayu@example.com',
+    avatarUrl: 'https://placehold.co/40x40.png',
+    roles: ['customer'],
+    accountStatus: 'Aktif',
+    joinDate: formatISO(subDays(new Date(), 10)),
+    lastLogin: formatISO(subDays(new Date(), 1)),
+    totalPurchases: 150000,
+    ticketsPurchased: 1,
+  },
+  {
+    id: 'usr_005',
+    name: 'Dewi Lestari',
+    email: 'dewi.lestari@example.net',
+    avatarUrl: 'https://placehold.co/40x40.png',
+    roles: ['customer'],
+    accountStatus: 'Ditangguhkan',
+    joinDate: formatISO(subDays(new Date(), 90)),
+    lastLogin: formatISO(subDays(new Date(), 30)),
+    totalPurchases: 75000,
+    ticketsPurchased: 1,
   },
 ];
