@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import React, { useEffect, useState } from "react"; 
-import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; 
+// import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; // No longer primary source
 import type { Event } from "@/lib/types";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,49 +11,76 @@ import { CalendarDays, MapPin, Users, Tag, Building, Ticket, ListChecks, Loader2
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
+import { useToast } from "@/hooks/use-toast";
 
 interface EventDetailPageProps {
   params: { id: string };
 }
 
-function getEventByIdClientSide(id: string): Event | undefined {
-  let allEvents: Event[] = [];
-  if (typeof window !== 'undefined') {
-    const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
-    if (storedEventsString) {
-      try {
-        allEvents = JSON.parse(storedEventsString);
-      } catch (e) {
-        console.error("Gagal mem-parse acara dari localStorage", e);
-        allEvents = MOCK_EVENTS;
-      }
-    } else {
-      allEvents = MOCK_EVENTS;
-    }
-  } else {
-    allEvents = MOCK_EVENTS;
-  }
+// function getEventByIdClientSide(id: string): Event | undefined { // Replaced with Supabase fetch
+//   let allEvents: Event[] = [];
+//   if (typeof window !== 'undefined') {
+//     const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
+//     if (storedEventsString) {
+//       try {
+//         allEvents = JSON.parse(storedEventsString);
+//       } catch (e) {
+//         console.error("Gagal mem-parse acara dari localStorage", e);
+//         allEvents = MOCK_EVENTS;
+//       }
+//     } else {
+//       allEvents = MOCK_EVENTS;
+//     }
+//   } else {
+//     allEvents = MOCK_EVENTS;
+//   }
   
-  const eventFromStorage = allEvents.find((event) => event.id === id);
-  if (eventFromStorage) {
-    return eventFromStorage;
-  }
-  return MOCK_EVENTS.find((event) => event.id === id);
-}
+//   const eventFromStorage = allEvents.find((event) => event.id === id);
+//   if (eventFromStorage) {
+//     return eventFromStorage;
+//   }
+//   return MOCK_EVENTS.find((event) => event.id === id);
+// }
 
 
 export default function EventDetailPage(props: EventDetailPageProps) {
-  const resolvedParams = React.use(props.params);
+  const resolvedParams = React.use(props.params); // Use React.use to resolve params
   const eventId = resolvedParams.id;
 
   const [event, setEvent] = useState<Event | null | undefined>(undefined); 
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (eventId) {
-      const foundEvent = getEventByIdClientSide(eventId);
-      setEvent(foundEvent || null); 
-    }
-  }, [eventId]); 
+    const fetchEvent = async () => {
+      if (!eventId) {
+        setEvent(null); // No ID, no event
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', eventId)
+          .single(); // We expect only one event or null
+
+        if (error && error.code !== 'PGRST116') { // PGRST116: "Fetched result not found"
+          throw error;
+        }
+        setEvent(data as Event | null); // Cast data to Event or null
+      } catch (error: any) {
+        console.error("Gagal memuat detail acara dari Supabase:", error);
+        toast({
+          title: "Gagal Memuat Detail Acara",
+          description: error.message || "Terjadi masalah saat mengambil data acara.",
+          variant: "destructive",
+        });
+        setEvent(null); // Set to null on error
+      }
+    };
+    
+    fetchEvent();
+  }, [eventId, toast]); 
 
   if (event === undefined) {
     return (
@@ -68,7 +95,7 @@ export default function EventDetailPage(props: EventDetailPageProps) {
     return (
       <div className="container py-12 text-center">
         <h1 className="text-2xl font-semibold">Acara tidak ditemukan</h1>
-        <p className="text-muted-foreground">Acara dengan ID '{eventId}' tidak dapat ditemukan di penyimpanan lokal atau data mock.</p>
+        <p className="text-muted-foreground">Acara dengan ID '{eventId}' tidak dapat ditemukan di database.</p>
       </div>
     );
   }
@@ -87,7 +114,7 @@ export default function EventDetailPage(props: EventDetailPageProps) {
                   src={event.imageUrl || "https://placehold.co/600x400.png"} // Fallback
                   alt={event.name}
                   fill 
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 67vw, 50vw" // Adjusted sizes
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 67vw, 50vw" 
                   style={{ objectFit: "cover" }} 
                   data-ai-hint={event.category ? event.category.toLowerCase() : "event"}
                   priority

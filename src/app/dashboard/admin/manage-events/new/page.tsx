@@ -21,10 +21,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CalendarPlus, Check, Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useTransition } from "react";
+import { useTransition } from "react"; // Removed useState as it's not directly used for newEvent
 import { formatISO } from "date-fns";
 import type { Event } from "@/lib/types"; // Import Event type
-import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; // Import MOCK_EVENTS for initial seeding if needed
+// import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; // No longer using localStorage or MOCK_EVENTS for seeding
+import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
+import { v4 as uuidv4 } from 'uuid'; // For generating client-side IDs if needed
 
 const priceTierSchema = z.object({
   name: z.string().min(1, { message: "Nama tier harus diisi." }),
@@ -69,46 +71,51 @@ export default function AddEventPage() {
     name: "priceTiers",
   });
 
-  function onSubmit(values: AddEventFormValues) {
+  async function onSubmit(values: AddEventFormValues) {
     startTransition(async () => {
-      const newEventId = `evt-${Date.now()}`;
-      const newEvent: Event = { 
-        id: newEventId,
+      // If your Supabase table 'events' has 'id' as UUID with default gen_random_uuid(),
+      // you might not need to generate it client-side.
+      // However, if 'id' is just TEXT or you want client-generated IDs:
+      const newEventId = `evt-${uuidv4()}`; // Using uuid for better uniqueness
+
+      const eventToInsert = { 
+        id: newEventId, // Include if your Supabase 'id' column is not auto-generating or is TEXT
         name: values.name,
-        date: formatISO(values.date),
+        date: formatISO(values.date), // Supabase expects ISO string for timestamptz
         location: values.location,
-        priceTiers: values.priceTiers,
+        priceTiers: values.priceTiers, // This will be stored as JSONB
         description: values.description,
-        imageUrl: values.imageUrl || "https://placehold.co/600x400.png", // Updated placeholder URL
+        imageUrl: values.imageUrl || "https://placehold.co/600x400.png",
         organizer: values.organizer,
         category: values.category,
         availableTickets: values.availableTickets,
       };
 
-      // Save to localStorage
       try {
-        const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
-        let allEvents: Event[] = [];
-        if (storedEventsString) {
-          allEvents = JSON.parse(storedEventsString);
+        const { data, error } = await supabase
+          .from('events')
+          .insert([eventToInsert]) // Supabase insert expects an array
+          .select(); // Optionally select the inserted data if needed
+
+        if (error) {
+          throw error;
         }
-        
-        const updatedEvents = [...allEvents, newEvent];
-        localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(updatedEvents));
         
         toast({
           title: "Acara Ditambahkan",
-          description: `${values.name} telah berhasil ditambahkan dan disimpan (secara lokal).`,
+          description: `${values.name} telah berhasil ditambahkan ke database.`,
           action: <Check className="h-5 w-5 text-green-500" />,
         });
 
         router.push("/dashboard/admin/manage-events");
+        // Optionally, revalidate or refresh the manage-events page data if needed
+        // e.g., by calling a revalidation function if using server-side data fetching strategies
 
-      } catch (error) {
-        console.error("Gagal menyimpan acara ke localStorage:", error);
+      } catch (error: any) {
+        console.error("Gagal menyimpan acara ke Supabase:", error);
         toast({
           title: "Gagal Menyimpan Acara",
-          description: "Terjadi masalah saat menyimpan acara secara lokal.",
+          description: error.message || "Terjadi masalah saat menyimpan acara ke database.",
           variant: "destructive",
         });
       }
@@ -124,7 +131,7 @@ export default function AddEventPage() {
             <div>
               <CardTitle className="text-3xl font-bold">Tambah Acara Baru</CardTitle>
               <CardDescription className="text-primary-foreground/80">
-                Isi detail acara di bawah ini.
+                Isi detail acara di bawah ini untuk disimpan ke database.
               </CardDescription>
             </div>
           </div>
@@ -319,7 +326,7 @@ export default function AddEventPage() {
                 ) : (
                   <Check className="mr-2 h-4 w-4" />
                 )}
-                Simpan Acara
+                Simpan Acara ke Database
               </Button>
             </form>
           </Form>

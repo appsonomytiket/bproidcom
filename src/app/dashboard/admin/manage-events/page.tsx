@@ -4,52 +4,62 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MOCK_EVENTS } from "@/lib/constants";
+// import { MOCK_EVENTS } from "@/lib/constants"; // No longer primary source
 import type { Event } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Edit3, Trash2, ClipboardList, RotateCcw, Eye } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, ClipboardList, Eye, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
 
 interface FormattedEvent extends Event {
   formattedDate: string;
 }
 
-const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
+// const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events'; // No longer using localStorage
 
 export default function ManageEventsPage() {
   const [events, setEvents] = useState<FormattedEvent[]>([]);
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
-  const loadEvents = () => {
-    let currentEvents: Event[];
+  const loadEvents = async () => {
+    setLoading(true);
     try {
-      const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
-      if (storedEventsString) {
-        currentEvents = JSON.parse(storedEventsString);
-      } else {
-        // Seed localStorage with MOCK_EVENTS if it's empty
-        currentEvents = MOCK_EVENTS;
-        localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(MOCK_EVENTS));
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) {
+        throw error;
       }
-    } catch (error) {
-      console.error("Gagal memuat atau mem-parse acara dari localStorage:", error);
+
+      if (data) {
+        const formatted = data.map((event: Event) => ({ // Explicitly type event
+          ...event,
+          formattedDate: event.date ? format(new Date(event.date), "PPpp", { locale: idLocale }) : "Tanggal tidak valid",
+        }));
+        setEvents(formatted);
+      } else {
+        setEvents([]);
+      }
+    } catch (error: any) {
+      console.error("Gagal memuat acara dari Supabase:", error);
       toast({
         title: "Gagal Memuat Acara",
-        description: "Menggunakan data acara default.",
+        description: error.message || "Terjadi masalah saat mengambil data acara.",
         variant: "destructive",
       });
-      currentEvents = MOCK_EVENTS; // Fallback to MOCK_EVENTS on error
+      // Fallback or set to empty:
+      // setEvents(MOCK_EVENTS.map(event => ({...event, formattedDate: format(new Date(event.date), "PPpp", { locale: idLocale }) })));
+      setEvents([]);
+    } finally {
+      setLoading(false);
     }
-    
-    const formatted = currentEvents.map(event => ({
-      ...event,
-      formattedDate: format(new Date(event.date), "PPpp", { locale: idLocale }),
-    }));
-    setEvents(formatted);
   };
 
   useEffect(() => {
@@ -62,46 +72,58 @@ export default function ManageEventsPage() {
     console.log("Edit Acara:", id);
     toast({
       title: "Fungsi Belum Tersedia",
-      description: `Fungsionalitas Edit Acara ${id} belum diimplementasikan.`,
+      description: `Fungsionalitas Edit Acara ${id} belum diimplementasikan. Ini akan memerlukan formulir edit dan update ke Supabase.`,
     });
+    // router.push(`/dashboard/admin/manage-events/edit/${id}`); // Future route
   };
 
-  const handleDeleteEvent = (id: string) => {
-    console.log("Hapus Acara:", id);
-    if (confirm(`Apakah Anda yakin ingin menghapus acara ini? Tindakan ini akan menghapusnya dari penyimpanan lokal.`)) {
+  const handleDeleteEvent = async (id: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus acara ini (ID: ${id})? Tindakan ini akan menghapusnya dari database.`)) {
       try {
-        const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
-        if (storedEventsString) {
-          let allEvents: Event[] = JSON.parse(storedEventsString);
-          const updatedEvents = allEvents.filter(event => event.id !== id);
-          localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(updatedEvents));
-          loadEvents(); // Reload events from localStorage
-          toast({
-            title: "Acara Dihapus",
-            description: "Acara telah berhasil dihapus dari penyimpanan lokal.",
-          });
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .match({ id: id });
+
+        if (error) {
+          throw error;
         }
-      } catch (error) {
-        console.error("Gagal menghapus acara dari localStorage:", error);
+
+        loadEvents(); // Reload events from Supabase
+        toast({
+          title: "Acara Dihapus",
+          description: "Acara telah berhasil dihapus dari database.",
+        });
+      } catch (error: any) {
+        console.error("Gagal menghapus acara dari Supabase:", error);
         toast({
           title: "Gagal Menghapus",
-          description: "Terjadi masalah saat menghapus acara.",
+          description: error.message || "Terjadi masalah saat menghapus acara.",
           variant: "destructive",
         });
       }
     }
   };
 
-  const handleResetEvents = () => {
-    if (confirm("Apakah Anda yakin ingin mereset semua acara ke daftar awal? Semua acara yang ditambahkan atau diubah secara lokal akan hilang.")) {
-      localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(MOCK_EVENTS));
-      loadEvents();
-      toast({
-        title: "Acara Direset",
-        description: "Daftar acara telah dikembalikan ke kondisi awal.",
-      });
-    }
-  };
+  // const handleResetEvents = () => { // This function is less relevant with a real DB
+  //   if (confirm("Apakah Anda yakin ingin mereset semua acara ke daftar awal? Semua acara yang ditambahkan atau diubah secara lokal akan hilang.")) {
+  //     localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(MOCK_EVENTS));
+  //     loadEvents();
+  //     toast({
+  //       title: "Acara Direset",
+  //       description: "Daftar acara telah dikembalikan ke kondisi awal.",
+  //     });
+  //   }
+  // };
+
+  if (loading) {
+    return (
+      <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12 text-center">
+        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+        <p className="text-xl font-semibold">Memuat acara dari database...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-12">
@@ -111,10 +133,10 @@ export default function ManageEventsPage() {
           Kelola Acara
         </h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-           <Button onClick={handleResetEvents} variant="outline" className="w-full sm:w-auto">
+           {/* <Button onClick={handleResetEvents} variant="outline" className="w-full sm:w-auto">
             <RotateCcw className="mr-2 h-5 w-5" />
             Reset ke Acara Default
-          </Button>
+          </Button> */}
           <Button asChild className="bg-primary hover:bg-primary/90 w-full sm:w-auto">
             <Link href="/dashboard/admin/manage-events/new">
               <PlusCircle className="mr-2 h-5 w-5" />
@@ -127,12 +149,12 @@ export default function ManageEventsPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle>Daftar Acara</CardTitle>
-          <CardDescription>Lihat dan kelola semua acara yang terdaftar (disimpan secara lokal).</CardDescription>
+          <CardDescription>Lihat dan kelola semua acara yang terdaftar di database.</CardDescription>
         </CardHeader>
         <CardContent>
           {events.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
-              <p>Tidak ada acara yang ditemukan di penyimpanan lokal. Coba tambahkan acara baru atau reset ke acara default.</p>
+              <p>Tidak ada acara yang ditemukan di database. Coba tambahkan acara baru.</p>
             </div>
           ) : (
             <Table>
@@ -186,4 +208,3 @@ export default function ManageEventsPage() {
     </div>
   );
 }
-

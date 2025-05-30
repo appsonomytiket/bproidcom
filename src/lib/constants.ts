@@ -2,7 +2,7 @@
 import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData, AdminWithdrawalRequest, Coupon, User } from './types';
 import { addMonths, formatISO, subDays } from 'date-fns';
 
-export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
+// export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events'; // No longer primary for events
 export const LOCAL_STORAGE_COUPONS_KEY = 'bproid_managed_coupons';
 export const LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX = 'bproid_user_settings_';
 
@@ -330,4 +330,3 @@ export const MOCK_USERS: User[] = [
     ticketsPurchased: 1,
   },
 ];
-
