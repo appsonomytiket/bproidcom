@@ -8,12 +8,19 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from "@/components/ui/button";
 import { CalendarDays, MapPin, Tag } from "lucide-react";
 import { format } from "date-fns";
+import { useState, useEffect } from "react";
 
 interface EventCardProps {
   event: Event;
 }
 
 export function EventCard({ event }: EventCardProps) {
+  const [formattedDate, setFormattedDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFormattedDate(format(new Date(event.date), "PPPp"));
+  }, [event.date]);
+
   return (
     <Card className="flex flex-col overflow-hidden rounded-lg shadow-lg transition-shadow hover:shadow-xl">
       <CardHeader className="p-0">
@@ -32,7 +39,7 @@ export function EventCard({ event }: EventCardProps) {
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center">
             <CalendarDays className="mr-2 h-4 w-4" />
-            <span>{format(new Date(event.date), "PPPp")}</span>
+            <span>{formattedDate || "Loading date..."}</span>
           </div>
           <div className="flex items-center">
             <MapPin className="mr-2 h-4 w-4" />
