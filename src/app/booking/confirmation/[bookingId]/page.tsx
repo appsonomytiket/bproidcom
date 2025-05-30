@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from 'next/link';
 import { CheckCircle, ClipboardCopy, Download, Ticket } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { MOCK_USERS } from '@/lib/constants'; // Import MOCK_USERS to find sponsor
 
 interface BookingDetails {
   bookingId: string;
@@ -16,9 +17,11 @@ interface BookingDetails {
   email: string;
   tickets: number;
   totalPrice: number;
-  referralCode?: string;
+  referralCode?: string; // Buyer's new referral code
   selectedTierName?: string;
   selectedTierPrice?: number;
+  usedReferralCode?: string; // Sponsor's referral code used for this booking
+  sponsorName?: string; // Name of the sponsor
 }
 
 export default function BookingConfirmationPage() {
@@ -29,13 +32,34 @@ export default function BookingConfirmationPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const storedDetails = localStorage.getItem('bookingDetails');
-      if (storedDetails) {
-        const parsedDetails: BookingDetails = JSON.parse(storedDetails);
+      const storedDetailsString = localStorage.getItem('bookingDetails');
+      if (storedDetailsString) {
+        const parsedDetails: Omit<BookingDetails, 'sponsorName' | 'referralCode'> & { usedReferralCode?: string, name: string } = JSON.parse(storedDetailsString);
+        
         if (parsedDetails.bookingId === bookingId) {
-          const referralCode = `${parsedDetails.name.substring(0,3).toUpperCase()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-          setDetails({...parsedDetails, referralCode});
+          const buyerReferralCode = `${parsedDetails.name.substring(0,3).toUpperCase()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+          let foundSponsorName: string | undefined = undefined;
+
+          if (parsedDetails.usedReferralCode) {
+            const sponsor = MOCK_USERS.find(user => user.affiliateCode === parsedDetails.usedReferralCode && user.roles.includes('affiliate'));
+            if (sponsor) {
+              foundSponsorName = sponsor.name;
+            } else {
+              // Optionally, handle case where usedReferralCode is present but no matching sponsor found
+              // console.warn(`Sponsor dengan kode ${parsedDetails.usedReferralCode} tidak ditemukan.`);
+            }
+          }
+
+          setDetails({
+            ...(parsedDetails as BookingDetails), // Cast back to BookingDetails, assuming parsedDetails aligns
+            bookingId: bookingId as string, // Ensure bookingId from params is used
+            referralCode: buyerReferralCode, 
+                            // @ts-ignore
+            sponsorName: foundSponsorName 
+          });
+
         } else {
+          // Booking ID from URL doesn't match stored details, treat as potentially direct navigation or error
           setDetails({
             bookingId: bookingId as string,
             eventName: "Acara Tidak Diketahui",
@@ -44,7 +68,8 @@ export default function BookingConfirmationPage() {
             tickets: 0,
             totalPrice: 0,
             selectedTierName: "N/A",
-            referralCode: "N/A"
+            referralCode: "N/A", // Generate a dummy or leave as N/A
+            sponsorName: undefined
           });
         }
       } else {
@@ -57,7 +82,8 @@ export default function BookingConfirmationPage() {
             tickets: 0,
             totalPrice: 0,
             selectedTierName: "N/A",
-            referralCode: "N/A"
+            referralCode: "N/A",
+            sponsorName: undefined
           });
       }
     }
@@ -159,6 +185,15 @@ export default function BookingConfirmationPage() {
             </div>
             <p className="text-xs text-muted-foreground">Setelah pembayaran, harap kirim bukti transfer ke payments@bproid.com beserta ID Pemesanan Anda. <strong>E-tiket akan dikirimkan ke email Anda setelah pembayaran diverifikasi.</strong></p>
           </div>
+
+          {details.sponsorName && (
+            <div className="mt-6 border-t pt-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Sponsormu: <span className="font-semibold text-accent">{details.sponsorName}</span>
+              </p>
+            </div>
+          )}
+
         </CardContent>
         <CardFooter className="p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
           <Button

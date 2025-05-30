@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation";
 import type { Event, EventPriceTier } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Ticket, User, Mail, Tag } from "lucide-react";
+import { Ticket, User, Mail, Tag, Gift } from "lucide-react"; // Import Gift icon
 import { useEffect, useState } from "react";
 
 const bookingFormSchema = z.object({
@@ -27,6 +27,7 @@ const bookingFormSchema = z.object({
   email: z.string().email({ message: "Alamat email tidak valid." }),
   selectedTierName: z.string().min(1, { message: "Pilih jenis tiket." }),
   tickets: z.coerce.number().min(1, { message: "Minimal pesan 1 tiket." }).max(10, { message: "Tidak dapat memesan lebih dari 10 tiket sekaligus."}),
+  usedReferralCode: z.string().optional(), // Added field for sponsor's referral code
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
@@ -49,6 +50,7 @@ export function BookingForm({ event }: BookingFormProps) {
       email: "",
       selectedTierName: selectedTier?.name || "",
       tickets: 1,
+      usedReferralCode: "", // Default to empty
     },
   });
 
@@ -100,6 +102,7 @@ export function BookingForm({ event }: BookingFormProps) {
         totalPrice: totalPrice,
         selectedTierName: selectedTier.name,
         selectedTierPrice: selectedTier.price,
+        usedReferralCode: values.usedReferralCode || undefined, // Save used referral code
       }));
     }
     
@@ -182,6 +185,21 @@ export function BookingForm({ event }: BookingFormProps) {
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="usedReferralCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center"><Gift className="mr-2 h-4 w-4 text-primary" />Kode Referral Sponsor (Opsional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Masukkan kode referral jika ada" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="text-lg font-semibold">
           Total Harga: Rp {totalPrice.toLocaleString()}
         </div>
