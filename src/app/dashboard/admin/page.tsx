@@ -1,13 +1,11 @@
 
 import { AdminSalesChart } from "@/components/dashboard/AdminSalesChart";
 import { AdminRecentBookingsTable } from "@/components/dashboard/AdminRecentBookingsTable";
+import { AdminCommissionChart } from "@/components/dashboard/AdminCommissionChart"; // Import the new component
 import { MOCK_ADMIN_SALES_DATA, MOCK_RECENT_BOOKINGS_ADMIN, MOCK_ADMIN_COMMISSION_DATA, MOCK_TOP_AFFILIATES_ADMIN } from "@/lib/constants";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, Users, BarChartBig } from "lucide-react";
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
-import { ChartTooltipContent } from "@/components/ui/chart"
-
 
 export default async function AdminDashboardPage() {
   const salesData = MOCK_ADMIN_SALES_DATA;
@@ -54,25 +52,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <AdminSalesChart data={salesData} />
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Pembayaran Komisi</CardTitle>
-            <CardDescription>Pembayaran komisi bulanan (dalam ribuan IDR)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={commissionData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `Rp${value}K`} />
-                  <Tooltip content={<ChartTooltipContent indicator="dot" />} cursor={{ stroke: "hsl(var(--accent))", strokeWidth: 2, strokeDasharray: "3 3" }} />
-                  <Line type="monotone" dataKey="commissions" stroke="hsl(var(--accent))" strokeWidth={2} activeDot={{ r: 8, style: { fill: "hsl(var(--accent))" } }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <AdminCommissionChart data={commissionData} /> {/* Use the new component here */}
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
