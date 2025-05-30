@@ -4,8 +4,9 @@ import type { Affiliate } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, Users, Gift, ClipboardCopy, UserCircle, LogOut } from "lucide-react";
+import { DollarSign, Users, Gift, UserCircle, LogOut } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { CopyButton } from "@/components/dashboard/CopyButton"; // Import the new component
 
 // Simulate fetching affiliate data
 async function getAffiliateData(): Promise<Affiliate> {
@@ -42,9 +43,7 @@ export default async function AffiliateDashboardPage() {
                 </div>
                 <p className="text-xs text-muted-foreground pt-2">Kode referral Anda: 
                     <span className="ml-1 font-mono text-accent bg-accent/10 px-2 py-1 rounded-md">{affiliate.referralCode}</span> 
-                    <Button variant="ghost" size="icon" className="ml-1 h-6 w-6" onClick={() => typeof navigator !== 'undefined' && navigator.clipboard?.writeText(affiliate.referralCode)}>
-                        <ClipboardCopy className="h-3 w-3" />
-                    </Button>
+                    <CopyButton textToCopy={affiliate.referralCode} label="Kode Referral" />
                 </p>
             </CardContent>
             <CardFooter>
