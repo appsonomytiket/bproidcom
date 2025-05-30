@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AppShell } from '@/components/layout/AppShell';
+import { SidebarProvider } from '@/components/ui/sidebar'; // Ditambahkan SidebarProvider
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AppShell>{children}</AppShell>
+        <SidebarProvider defaultOpen={true}> {/* defaultOpen={false} untuk mulai diciutkan */}
+          <AppShell>{children}</AppShell>
+        </SidebarProvider>
       </body>
     </html>
   );
