@@ -9,7 +9,7 @@ import type { Event } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Edit3, Trash2, ClipboardList, RotateCcw } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, ClipboardList, RotateCcw, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -160,11 +160,17 @@ export default function ManageEventsPage() {
                     <TableCell className="text-center">{event.availableTickets}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditEvent(event.id)}>
+                        <Button variant="outline" size="icon" asChild>
+                          <Link href={`/events/${event.id}`} target="_blank" title="Lihat Halaman Publik">
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">Lihat Halaman Publik</span>
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleEditEvent(event.id)} title="Edit Acara">
                           <Edit3 className="h-4 w-4" />
                           <span className="sr-only">Edit</span>
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteEvent(event.id)}>
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteEvent(event.id)} title="Hapus Acara">
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Hapus</span>
                         </Button>
