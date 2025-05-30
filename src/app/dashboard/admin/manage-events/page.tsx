@@ -92,7 +92,11 @@ export default function ManageEventsPage() {
                     <TableCell className="font-medium">{event.name}</TableCell>
                     <TableCell>{event.formattedDate}</TableCell>
                     <TableCell>{event.location}</TableCell>
-                    <TableCell className="text-right">{event.price.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      {event.priceTiers && event.priceTiers.length > 0 
+                        ? `Rp ${event.priceTiers[0].price.toLocaleString()}`
+                        : 'N/A'}
+                    </TableCell>
                     <TableCell className="text-center">{event.availableTickets}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center space-x-2">
