@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Ticket, Settings, BarChart3, ClipboardList, Bot, PanelLeft } from "lucide-react";
+import { Ticket, Settings, BarChart3, ClipboardList, Bot, PanelLeft, UserCircle, CreditCard, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from '@/components/ui/sidebar'; // Import SidebarTrigger
 import {
@@ -13,6 +13,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+// Mock user data for display purposes
+const mockUser = {
+  name: "Admin Webmaster",
+  email: "zanuradigital@gmail.com",
+  avatarUrl: "https://placehold.co/40x40.png", // Placeholder avatar
+  role: "Admin",
+};
 
 export function Header() {
   return (
@@ -26,20 +35,16 @@ export function Header() {
           <span className="text-2xl font-bold text-primary">Bproid</span>
         </Link>
         
-        <nav className="hidden items-center gap-4 md:flex">
-          <Link
-            href="/"
-            className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
-          >
-            Acara
-          </Link>
-          <Link
-            href="/dashboard/affiliate"
-            className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
-          >
-            Dasbor Afiliasi
-          </Link>
-          {/* Dropdown Admin mungkin bisa dipertimbangkan untuk dihapus jika semua link ada di sidebar */}
+        {/* Desktop Navigation */}
+        <nav className="hidden items-center gap-1 md:flex">
+          <Button variant="link" asChild className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground hover:no-underline">
+            <Link href="/">Acara</Link>
+          </Button>
+          <Button variant="link" asChild className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground hover:no-underline">
+            <Link href="/dashboard/affiliate">Dasbor Afiliasi</Link>
+          </Button>
+          
+          {/* Admin Area Dropdown - Consider removing if sidebar is primary admin nav */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground">
@@ -69,20 +74,96 @@ export function Header() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </nav>
-        <div className="flex items-center gap-4 md:hidden"> {/* Navigasi mobile bisa ditaruh di sini jika diperlukan, atau sidebar cukup */}
-           <DropdownMenu>
+
+          {/* User Profile Dropdown */}
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Settings className="h-5 w-5" />
-                 <span className="sr-only">Menu Admin Mobile</span>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={mockUser.avatarUrl} alt={mockUser.name} data-ai-hint="profile avatar" />
+                  <AvatarFallback>{mockUser.name.substring(0,1).toUpperCase()}</AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Admin Area</DropdownMenuLabel>
+            <DropdownMenuContent className="w-64" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{mockUser.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {mockUser.email}
+                  </p>
+                  {mockUser.role && (
+                     <div className="flex items-center pt-1">
+                        <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
+                        <p className="text-xs font-medium text-primary">{mockUser.role}</p>
+                    </div>
+                  )}
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-               <DropdownMenuItem asChild><Link href="/" className="flex items-center">Acara</Link></DropdownMenuItem>
-               <DropdownMenuItem asChild><Link href="/dashboard/affiliate" className="flex items-center">Dasbor Afiliasi</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin" className="flex items-center">
+                  <UserCircle className="mr-2 h-4 w-4" />
+                  <span>Dasbor Admin</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                {/* Assuming this link is for user's purchased tickets, adjust if necessary */}
+                <Link href="/my-tickets" className="flex items-center">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  <span>Tiket Saya</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/user/settings" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Pengaturan</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                {/* Adjust logout functionality as needed */}
+                <button onClick={() => alert("Fungsi Keluar belum diimplementasikan")} className="w-full flex items-center">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Keluar</span>
+                </button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </nav>
+
+        {/* Mobile Navigation Trigger (Hamburger for Admin/User menu) */}
+        <div className="flex items-center gap-2 md:hidden">
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                 <Avatar className="h-9 w-9">
+                  <AvatarImage src={mockUser.avatarUrl} alt={mockUser.name} data-ai-hint="profile avatar mobile" />
+                  <AvatarFallback>{mockUser.name.substring(0,1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <span className="sr-only">Buka menu pengguna</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+               <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{mockUser.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {mockUser.email}
+                  </p>
+                   {mockUser.role && (
+                     <div className="flex items-center pt-1">
+                        <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
+                        <p className="text-xs font-medium text-primary">{mockUser.role}</p>
+                    </div>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild><Link href="/" className="flex items-center">Beranda</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/dashboard/affiliate" className="flex items-center">Dasbor Afiliasi</Link></DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Area Admin</DropdownMenuLabel>
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/admin" className="flex items-center">
                   <BarChart3 className="mr-2 h-4 w-4" />
@@ -100,6 +181,19 @@ export function Header() {
                   <Bot className="mr-2 h-4 w-4" />
                   Alat Deskripsi AI
                 </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/user/settings" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Pengaturan Akun</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <button onClick={() => alert("Fungsi Keluar belum diimplementasikan")} className="w-full flex items-center">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Keluar</span>
+                </button>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
