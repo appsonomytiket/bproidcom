@@ -1,11 +1,13 @@
 
-import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData, AdminWithdrawalRequest } from './types';
+import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData, AdminWithdrawalRequest, Coupon } from './types';
+import { addMonths, formatISO } from 'date-fns';
 
 // Note: Translating mock data can be extensive. 
 // Only highly visible "status" like fields are translated here.
 // Full content translation of descriptions etc. should be handled as a content localization task.
 
 export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
+export const LOCAL_STORAGE_COUPONS_KEY = 'bproid_managed_coupons';
 
 export const MOCK_EVENTS: Event[] = [
   {
@@ -106,8 +108,8 @@ export const MOCK_AFFILIATE_DATA: Affiliate = {
   referralCode: 'CITRA789REF',
   totalEarnings: 1250000,
   withdrawalHistory: [
-    { date: '2024-06-15T10:00:00Z', amount: 500000, status: 'Completed' }, 
-    { date: '2024-07-10T14:00:00Z', amount: 750000, status: 'Processing' }, 
+    { date: '2024-06-15T10:00:00Z', amount: 500000, status: 'Selesai' }, 
+    { date: '2024-07-10T14:00:00Z', amount: 750000, status: 'Diproses' }, 
   ],
   referredSales: [
     { bookingId: 'BK003', eventName: 'Konser Musik Merdeka', commission: 75000, date: '2024-07-25T10:00:00Z' },
@@ -120,7 +122,7 @@ export const MOCK_ADMIN_SALES_DATA: AdminSaleData[] = [
   { month: 'Feb', sales: 3000 },
   { month: 'Mar', sales: 5000 },
   { month: 'Apr', sales: 4500 },
-  { month: 'May', sales: 6000 }, // 'May' maps to 'Mei' in AdminSalesChart
+  { month: 'Mei', sales: 6000 },
   { month: 'Jun', sales: 5500 },
 ];
 
@@ -129,7 +131,7 @@ export const MOCK_ADMIN_COMMISSION_DATA: AdminCommissionData[] = [
   { month: 'Feb', commissions: 300 },
   { month: 'Mar', commissions: 500 },
   { month: 'Apr', commissions: 450 },
-  { month: 'May', commissions: 600 }, // 'May' maps to 'Mei' (if used in a chart, ensure translation there)
+  { month: 'Mei', commissions: 600 },
   { month: 'Jun', commissions: 550 },
 ];
 
@@ -174,4 +176,41 @@ export const MOCK_ADMIN_WITHDRAWAL_REQUESTS: AdminWithdrawalRequest[] = [
   { id: 'WR002', affiliateId: 'AFF002', affiliateName: 'Rian Hidayat', date: '2024-07-22T14:30:00Z', amount: 500000, status: 'Approved' },
   { id: 'WR003', affiliateId: 'AFF001', affiliateName: 'Citra Lestari', date: '2024-07-10T09:15:00Z', amount: 200000, status: 'Completed' },
   { id: 'WR004', affiliateId: 'AFF003', affiliateName: 'Siti Aminah', date: '2024-07-25T11:00:00Z', amount: 300000, status: 'Rejected' },
+];
+
+export const MOCK_COUPONS: Coupon[] = [
+  {
+    id: 'CPN001',
+    code: 'HEMAT20',
+    discountType: 'percentage',
+    discountValue: 20,
+    expiryDate: formatISO(addMonths(new Date(), 1)), // Expires in 1 month
+    isActive: true,
+    timesUsed: 5,
+    usageLimit: 100,
+    minPurchase: 100000,
+    description: 'Diskon 20% untuk semua acara, min. pembelian Rp100.000',
+  },
+  {
+    id: 'CPN002',
+    code: 'DISKON50K',
+    discountType: 'fixed',
+    discountValue: 50000,
+    expiryDate: formatISO(addMonths(new Date(), 2)), // Expires in 2 months
+    isActive: true,
+    timesUsed: 12,
+    minPurchase: 200000,
+    description: 'Potongan langsung Rp50.000, min. pembelian Rp200.000',
+  },
+  {
+    id: 'CPN003',
+    code: 'LAUNCHNEW',
+    discountType: 'percentage',
+    discountValue: 15,
+    expiryDate: formatISO(addMonths(new Date(), -1)), // Expired last month
+    isActive: false,
+    timesUsed: 50,
+    usageLimit: 50,
+    description: 'Kupon peluncuran (kadaluwarsa)',
+  },
 ];

@@ -61,3 +61,16 @@ export interface AdminWithdrawalRequest {
   amount: number;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Completed'; // Admin-centric statuses
 }
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  expiryDate: string; // ISO string date
+  isActive: boolean;
+  usageLimit?: number; // Optional: total times the coupon can be used
+  timesUsed: number;   // How many times it has been used
+  minPurchase?: number; // Optional: minimum purchase amount
+  description?: string; // Optional: brief description of the coupon
+}
