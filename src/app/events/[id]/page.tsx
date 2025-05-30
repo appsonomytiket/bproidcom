@@ -2,8 +2,8 @@
 "use client"; // Make this a client component
 
 import Image from "next/image";
-import { useEffect, useState } from "react"; // Import useEffect and useState
-import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; // Import LOCAL_STORAGE_EVENTS_KEY
+import React, { useEffect, useState } from "react"; // Import React for React.use
+import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; 
 import type { Event } from "@/lib/types";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,15 +48,19 @@ function getEventByIdClientSide(id: string): Event | undefined {
 }
 
 
-export default function EventDetailPage({ params }: EventDetailPageProps) {
+export default function EventDetailPage(props: EventDetailPageProps) {
+  // As per Next.js warning, props.params might be a Promise. Use React.use to unwrap.
+  const resolvedParams = React.use(props.params);
+  const eventId = resolvedParams.id;
+
   const [event, setEvent] = useState<Event | null | undefined>(undefined); // undefined for loading, null for not found
 
   useEffect(() => {
-    if (params.id) {
-      const foundEvent = getEventByIdClientSide(params.id);
+    if (eventId) {
+      const foundEvent = getEventByIdClientSide(eventId);
       setEvent(foundEvent || null); // Set to null if not found
     }
-  }, [params.id]);
+  }, [eventId]); // Depend on the resolved eventId
 
   if (event === undefined) {
     return (
@@ -71,7 +75,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
     return (
       <div className="container py-12 text-center">
         <h1 className="text-2xl font-semibold">Acara tidak ditemukan</h1>
-        <p className="text-muted-foreground">Acara dengan ID '{params.id}' tidak dapat ditemukan di penyimpanan lokal atau data mock.</p>
+        <p className="text-muted-foreground">Acara dengan ID '{eventId}' tidak dapat ditemukan di penyimpanan lokal atau data mock.</p>
       </div>
     );
   }
@@ -203,8 +207,3 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
     </div>
   );
 }
-
-// generateStaticParams has been removed because this is a Client Component.
-
-// Optional: Revalidate data at intervals if events can change frequently
-// export const revalidate = 3600; // Revalidate every hour
