@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { CheckCircle, ClipboardCopy, Download } from 'lucide-react';
+import { CheckCircle, ClipboardCopy, Download, Ticket } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface BookingDetails {
@@ -17,6 +17,8 @@ interface BookingDetails {
   tickets: number;
   totalPrice: number;
   referralCode?: string;
+  selectedTierName?: string;
+  selectedTierPrice?: number;
 }
 
 export default function BookingConfirmationPage() {
@@ -29,14 +31,11 @@ export default function BookingConfirmationPage() {
     if (typeof window !== 'undefined') {
       const storedDetails = localStorage.getItem('bookingDetails');
       if (storedDetails) {
-        const parsedDetails = JSON.parse(storedDetails);
-        // Check if the stored bookingId matches the URL param
+        const parsedDetails: BookingDetails = JSON.parse(storedDetails);
         if (parsedDetails.bookingId === bookingId) {
-          // Simulate generating a referral code
           const referralCode = `${parsedDetails.name.substring(0,3).toUpperCase()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
           setDetails({...parsedDetails, referralCode});
         } else {
-          // Data mismatch, might be an old booking or direct navigation
           setDetails({
             bookingId: bookingId as string,
             eventName: "Acara Tidak Diketahui",
@@ -44,9 +43,22 @@ export default function BookingConfirmationPage() {
             email: "N/A",
             tickets: 0,
             totalPrice: 0,
+            selectedTierName: "N/A",
             referralCode: "N/A"
           });
         }
+      } else {
+         // Handle case where no booking details are found, possibly direct navigation
+         setDetails({
+            bookingId: bookingId as string,
+            eventName: "Detail Pemesanan Tidak Ditemukan",
+            name: "N/A",
+            email: "N/A",
+            tickets: 0,
+            totalPrice: 0,
+            selectedTierName: "N/A",
+            referralCode: "N/A"
+          });
       }
     }
   }, [bookingId]);
@@ -74,7 +86,7 @@ export default function BookingConfirmationPage() {
       accountNumber: "123-456-7890",
       accountName: "PT Bproid Event Organizer",
     },
-    qris: "https://placehold.co/200x200.png?text=QRIS+Placeholder", // Placeholder QRIS image
+    qris: "https://placehold.co/200x200.png?text=QRIS+Placeholder",
   };
 
   return (
@@ -96,12 +108,15 @@ export default function BookingConfirmationPage() {
               <li><strong>Nama:</strong> {details.name}</li>
               <li><strong>Email:</strong> {details.email}</li>
               <li><strong>Acara:</strong> {details.eventName}</li>
-              <li><strong>Tiket:</strong> {details.tickets}</li>
+              {details.selectedTierName && details.selectedTierName !== "N/A" && (
+                <li><strong>Jenis Tiket:</strong> {details.selectedTierName} (Rp {details.selectedTierPrice?.toLocaleString()})</li>
+              )}
+              <li><strong>Jumlah Tiket:</strong> {details.tickets}</li>
               <li><strong>Total Harga:</strong> Rp {details.totalPrice.toLocaleString()}</li>
             </ul>
           </div>
 
-          {details.referralCode && (
+          {details.referralCode && details.referralCode !== "N/A" && (
              <div>
               <h3 className="text-lg font-semibold mb-1">Kode Referral Anda:</h3>
               <div className="flex items-center gap-2">

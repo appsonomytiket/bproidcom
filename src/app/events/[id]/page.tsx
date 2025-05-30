@@ -4,16 +4,15 @@ import { MOCK_EVENTS } from "@/lib/constants";
 import type { Event } from "@/lib/types";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CalendarDays, MapPin, Users, Tag, Building, Ticket } from "lucide-react"; // Added Ticket
+import { CalendarDays, MapPin, Users, Tag, Building, Ticket, ListChecks } from "lucide-react";
 import { format } from "date-fns";
-import { id as idLocale } from "date-fns/locale"; // Import Indonesian locale
+import { id as idLocale } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
 
 interface EventDetailPageProps {
   params: { id: string };
 }
 
-// Simulate fetching a single event
 async function getEventById(id: string): Promise<Event | undefined> {
   return MOCK_EVENTS.find((event) => event.id === id);
 }
@@ -28,6 +27,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
       </div>
     );
   }
+
+  const displayPrice = event.priceTiers && event.priceTiers.length > 0 ? event.priceTiers[0].price : 0;
 
   return (
     <div className="container py-12">
@@ -61,7 +62,11 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 </div>
                 <div className="flex items-center">
                   <Tag className="mr-3 h-5 w-5 text-accent" />
-                  <span className="text-lg font-semibold text-foreground">Rp {event.price.toLocaleString()}</span>
+                  {event.priceTiers && event.priceTiers.length > 1 ? (
+                     <span className="text-lg font-semibold text-foreground">Mulai dari Rp {displayPrice.toLocaleString()}</span>
+                  ) : (
+                     <span className="text-lg font-semibold text-foreground">Rp {displayPrice.toLocaleString()}</span>
+                  )}
                 </div>
                 <div className="flex items-center">
                   <Building className="mr-3 h-5 w-5 text-accent" />
@@ -83,6 +88,24 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               <CardDescription className="whitespace-pre-line text-base leading-relaxed">
                 {event.description}
               </CardDescription>
+
+              {event.priceTiers && event.priceTiers.length > 0 && (
+                <>
+                  <Separator className="my-6" />
+                  <h2 className="mb-3 text-xl font-semibold flex items-center">
+                    <ListChecks className="mr-3 h-6 w-6 text-accent" />
+                    Pilihan Tiket
+                  </h2>
+                  <ul className="space-y-3">
+                    {event.priceTiers.map((tier, index) => (
+                      <li key={index} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-lg shadow-sm bg-secondary/20">
+                        <span className="font-medium text-foreground">{tier.name}</span>
+                        <span className="font-semibold text-primary text-lg">Rp {tier.price.toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

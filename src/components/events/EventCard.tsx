@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from "@/components/ui/button";
 import { CalendarDays, MapPin, Tag } from "lucide-react";
 import { format } from "date-fns";
-import { id as idLocale } from "date-fns/locale"; // Import Indonesian locale
+import { id as idLocale } from "date-fns/locale";
 import { useState, useEffect } from "react";
 
 interface EventCardProps {
@@ -19,9 +19,16 @@ export function EventCard({ event }: EventCardProps) {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    // Format date on client-side to avoid hydration mismatch
     setFormattedDate(format(new Date(event.date), "PPPp", { locale: idLocale }));
   }, [event.date]);
+
+  const displayPrice = event.priceTiers && event.priceTiers.length > 0
+    ? event.priceTiers[0].price
+    : 0;
+  
+  const displayTierName = event.priceTiers && event.priceTiers.length > 0
+    ? event.priceTiers[0].name
+    : "";
 
   return (
     <Card className="flex flex-col overflow-hidden rounded-lg shadow-lg transition-shadow hover:shadow-xl">
@@ -49,7 +56,11 @@ export function EventCard({ event }: EventCardProps) {
           </div>
           <div className="flex items-center">
             <Tag className="mr-2 h-4 w-4" />
-            <span>Rp {event.price.toLocaleString()}</span>
+            {event.priceTiers && event.priceTiers.length > 1 ? (
+              <span>Mulai Rp {displayPrice.toLocaleString()}</span>
+            ) : (
+              <span>Rp {displayPrice.toLocaleString()} {displayTierName && `(${displayTierName})`}</span>
+            )}
           </div>
         </div>
         <CardDescription className="mt-3 line-clamp-3 text-sm">

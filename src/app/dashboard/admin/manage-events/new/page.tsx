@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,17 +18,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/datepicker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarPlus, Check, Loader2 } from "lucide-react";
+import { CalendarPlus, Check, Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useTransition } from "react";
-import { formatISO } from "date-fns"; // To format date to ISO string
+import { formatISO } from "date-fns";
+
+const priceTierSchema = z.object({
+  name: z.string().min(1, { message: "Nama tier harus diisi." }),
+  price: z.coerce.number().min(0, { message: "Harga tidak boleh negatif." }),
+});
 
 const addEventFormSchema = z.object({
   name: z.string().min(3, { message: "Nama acara minimal 3 karakter." }),
   date: z.date({ required_error: "Tanggal acara harus diisi." }),
   location: z.string().min(3, { message: "Lokasi minimal 3 karakter." }),
-  price: z.coerce.number().min(0, { message: "Harga tidak boleh negatif." }),
+  priceTiers: z.array(priceTierSchema).min(1, { message: "Minimal harus ada satu tier harga." }),
   description: z.string().min(10, { message: "Deskripsi minimal 10 karakter." }),
   imageUrl: z.string().url({ message: "URL gambar tidak valid." }).optional().or(z.literal('')),
   organizer: z.string().min(2, { message: "Penyelenggara minimal 2 karakter." }),
@@ -47,9 +52,8 @@ export default function AddEventPage() {
     resolver: zodResolver(addEventFormSchema),
     defaultValues: {
       name: "",
-      // date: undefined, // Handled by DatePicker
       location: "",
-      price: 0,
+      priceTiers: [{ name: "Regular", price: 0 }],
       description: "",
       imageUrl: "",
       organizer: "",
@@ -58,21 +62,23 @@ export default function AddEventPage() {
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "priceTiers",
+  });
+
   function onSubmit(values: AddEventFormValues) {
     startTransition(async () => {
       const newEventId = `evt-${Date.now()}`;
       const newEvent = {
         id: newEventId,
         ...values,
-        date: formatISO(values.date), // Convert Date object to ISO string
-        imageUrl: values.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(values.name)}`, // Default placeholder if empty
+        date: formatISO(values.date),
+        imageUrl: values.imageUrl || `https://placehold.co/600x400.png?text=${encodeURIComponent(values.name)}`,
       };
 
       console.log("Acara Baru (Simulasi):", newEvent);
       
-      // In a real app, you would send this to your backend API
-      // For now, we just simulate and redirect
-
       toast({
         title: "Acara Ditambahkan (Simulasi)",
         description: `${values.name} telah berhasil ditambahkan (simulasi).`,
@@ -80,8 +86,6 @@ export default function AddEventPage() {
       });
 
       router.push("/dashboard/admin/manage-events");
-      // To make it appear in the list on manage-events page, we'd need a backend
-      // or more complex client-side state management. For now, it just redirects.
     });
   }
 
@@ -125,7 +129,7 @@ export default function AddEventPage() {
                     <DatePicker 
                       date={field.value} 
                       setDate={field.onChange} 
-                      disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} // Disable past dates
+                      disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                     />
                     <FormMessage />
                   </FormItem>
@@ -146,34 +150,80 @@ export default function AddEventPage() {
                 )}
               />
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Harga Tiket (Rp)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Contoh: 150000" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="availableTickets"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Jumlah Tiket Tersedia</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Contoh: 500" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div>
+                <FormLabel>Tier Harga</FormLabel>
+                <div className="space-y-4 mt-2">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} className="p-4 bg-secondary/30">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`priceTiers.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nama Tier {index + 1}</FormLabel>
+                              <FormControl>
+                                <Input placeholder="cth: Reguler, VIP" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`priceTiers.${index}.price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Harga Tier {index + 1} (Rp)</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder="cth: 150000" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      {fields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => remove(index)}
+                          className="mt-3"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Hapus Tier Ini
+                        </Button>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ name: "", price: 0 })}
+                  className="mt-4"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Tambah Tier Harga
+                </Button>
+                 <FormMessage>{form.formState.errors.priceTiers?.root?.message || form.formState.errors.priceTiers?.message}</FormMessage>
               </div>
+
+
+              <FormField
+                control={form.control}
+                name="availableTickets"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jumlah Total Tiket Tersedia</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Contoh: 500" {...field} />
+                    </FormControl>
+                    <FormDescription>Jumlah total tiket untuk semua tier.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

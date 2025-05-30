@@ -1,10 +1,16 @@
 
+export interface EventPriceTier {
+  name: string;
+  price: number;
+}
+
 export interface Event {
   id: string;
   name: string;
   date: string;
   location: string;
-  price: number;
+  // price: number; // Removed single price
+  priceTiers: EventPriceTier[]; // Added multi-tier pricing
   description: string;
   imageUrl: string;
   organizer: string;
@@ -23,6 +29,8 @@ export interface Booking {
   bookingDate: string;
   paymentStatus: 'pending' | 'paid' | 'failed';
   referralCode?: string; // Generated after booking
+  selectedTierName?: string; // Added for multi-tier
+  selectedTierPrice?: number; // Added for multi-tier
 }
 
 export interface Affiliate {
