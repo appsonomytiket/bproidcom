@@ -26,13 +26,13 @@ export function Header() {
             href="/"
             className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
           >
-            Events
+            Acara
           </Link>
           <Link
             href="/dashboard/affiliate"
             className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
           >
-            Affiliate Dashboard
+            Dasbor Afiliasi
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -41,18 +41,18 @@ export function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Admin Area</DropdownMenuLabel>
+              <DropdownMenuLabel>Area Admin</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/admin" className="flex items-center">
                   <BarChart3 className="mr-2 h-4 w-4" />
-                  Sales Analytics
+                  Analitik Penjualan
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/admin/ai-description-generator" className="flex items-center">
                   <Bot className="mr-2 h-4 w-4" />
-                  AI Description Tool
+                  Alat Deskripsi AI
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -62,7 +62,7 @@ export function Header() {
            {/* Placeholder for potential user auth button */}
            {/* <Button variant="outline" size="sm">
             <UserCircle className="mr-2 h-4 w-4" />
-            Login
+            Masuk
           </Button> */}
         </div>
       </div>

@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <div className="container py-12">
       <h1 className="mb-10 text-center text-4xl font-extrabold tracking-tight text-primary lg:text-5xl">
-        Discover Upcoming Events
+        Temukan Acara Mendatang
       </h1>
       <EventList events={events} />
     </div>

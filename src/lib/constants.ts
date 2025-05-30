@@ -1,6 +1,10 @@
 
 import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData } from './types';
 
+// Note: Translating mock data can be extensive. 
+// Only highly visible "status" like fields are translated here.
+// Full content translation of descriptions etc. should be handled as a content localization task.
+
 export const MOCK_EVENTS: Event[] = [
   {
     id: '1',
@@ -62,7 +66,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     tickets: 2,
     totalPrice: 300000,
     bookingDate: '2024-07-20T10:00:00Z',
-    paymentStatus: 'pending',
+    paymentStatus: 'pending', // 'pending' maps to 'Tertunda' in AdminRecentBookingsTable
     referralCode: 'ANDI123XYZ',
   },
   {
@@ -74,7 +78,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     tickets: 1,
     totalPrice: 750000,
     bookingDate: '2024-07-22T14:30:00Z',
-    paymentStatus: 'paid',
+    paymentStatus: 'paid', // 'paid' maps to 'Lunas' in AdminRecentBookingsTable
     referralCode: 'BUDI456ABC',
   },
 ];
@@ -86,8 +90,8 @@ export const MOCK_AFFILIATE_DATA: Affiliate = {
   referralCode: 'CITRA789REF',
   totalEarnings: 1250000,
   withdrawalHistory: [
-    { date: '2024-06-15', amount: 500000, status: 'Completed' },
-    { date: '2024-07-10', amount: 750000, status: 'Processing' },
+    { date: '2024-06-15', amount: 500000, status: 'Completed' }, // 'Completed' maps to 'Selesai' in AffiliateDashboardPage
+    { date: '2024-07-10', amount: 750000, status: 'Processing' }, // 'Processing' maps to 'Diproses' in AffiliateDashboardPage
   ],
   referredSales: [
     { bookingId: 'BK003', eventName: 'Konser Musik Merdeka', commission: 75000, date: '2024-07-25' },
@@ -100,7 +104,7 @@ export const MOCK_ADMIN_SALES_DATA: AdminSaleData[] = [
   { month: 'Feb', sales: 3000 },
   { month: 'Mar', sales: 5000 },
   { month: 'Apr', sales: 4500 },
-  { month: 'May', sales: 6000 },
+  { month: 'May', sales: 6000 }, // 'May' maps to 'Mei' in AdminSalesChart
   { month: 'Jun', sales: 5500 },
 ];
 
@@ -109,7 +113,7 @@ export const MOCK_ADMIN_COMMISSION_DATA: AdminCommissionData[] = [
   { month: 'Feb', commissions: 300 },
   { month: 'Mar', commissions: 500 },
   { month: 'Apr', commissions: 450 },
-  { month: 'May', commissions: 600 },
+  { month: 'May', commissions: 600 }, // 'May' maps to 'Mei' (if used in a chart, ensure translation there)
   { month: 'Jun', commissions: 550 },
 ];
 

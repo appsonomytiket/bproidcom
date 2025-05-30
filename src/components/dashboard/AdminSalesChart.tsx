@@ -11,16 +11,29 @@ interface AdminSalesChartProps {
 }
 
 export function AdminSalesChart({ data }: AdminSalesChartProps) {
+  // Simple month name translation
+  const translateMonth = (month: string) => {
+    const monthMap: { [key: string]: string } = {
+      'Jan': 'Jan', 'Feb': 'Feb', 'Mar': 'Mar', 'Apr': 'Apr', 
+      'May': 'Mei', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Agu', 
+      'Sep': 'Sep', 'Oct': 'Okt', 'Nov': 'Nov', 'Dec': 'Des'
+    };
+    return monthMap[month] || month;
+  };
+
+  const translatedData = data.map(item => ({...item, month: translateMonth(item.month)}));
+
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle>Sales Analytics</CardTitle>
-        <CardDescription>Monthly sales performance (in thousands IDR)</CardDescription>
+        <CardTitle>Analitik Penjualan</CardTitle>
+        <CardDescription>Kinerja penjualan bulanan (dalam ribuan IDR)</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart data={translatedData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} />
               <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `Rp${value}K`} />

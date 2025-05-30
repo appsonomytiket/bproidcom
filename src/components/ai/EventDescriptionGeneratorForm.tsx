@@ -24,10 +24,10 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   keywords: z.string().min(5, {
-    message: "Keywords must be at least 5 characters.",
+    message: "Kata kunci minimal 5 karakter.",
   }),
   details: z.string().min(10, {
-    message: "Details must be at least 10 characters.",
+    message: "Detail minimal 10 karakter.",
   }),
 });
 
@@ -57,15 +57,15 @@ export function EventDescriptionGeneratorForm() {
         const result = await generateEventDescription(input);
         setGeneratedDescription(result.description);
         toast({
-          title: "Description Generated!",
-          description: "AI has successfully created an event description.",
+          title: "Deskripsi Dihasilkan!",
+          description: "AI berhasil membuat deskripsi acara.",
         });
       } catch (error) {
-        console.error("Failed to generate description:", error);
-        setGeneratedDescription("Error: Could not generate description.");
+        console.error("Gagal menghasilkan deskripsi:", error);
+        setGeneratedDescription("Error: Tidak dapat menghasilkan deskripsi.");
         toast({
-          title: "Error Generating Description",
-          description: (error as Error)?.message || "An unknown error occurred.",
+          title: "Error Menghasilkan Deskripsi",
+          description: (error as Error)?.message || "Terjadi kesalahan yang tidak diketahui.",
           variant: "destructive",
         });
       }
@@ -81,12 +81,12 @@ export function EventDescriptionGeneratorForm() {
             name="keywords"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Event Keywords</FormLabel>
+                <FormLabel>Kata Kunci Acara</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., music festival, rock, indie, outdoor" {...field} />
+                  <Input placeholder="cth: festival musik, rock, indie, outdoor" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Comma-separated keywords that describe your event.
+                  Kata kunci yang dipisahkan koma yang mendeskripsikan acara Anda.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -97,16 +97,16 @@ export function EventDescriptionGeneratorForm() {
             name="details"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Additional Event Details</FormLabel>
+                <FormLabel>Detail Tambahan Acara</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="e.g., Featuring 3 stages, local food vendors, family-friendly activities. Special guest: The Great Band."
+                    placeholder="cth: Menampilkan 3 panggung, vendor makanan lokal, kegiatan ramah keluarga. Bintang tamu: Band Hebat."
                     className="min-h-[100px]"
                     {...field}
                   />
                 </FormControl>
                 <FormDescription>
-                  Provide any other important details for the AI.
+                  Berikan detail penting lainnya untuk AI.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -118,7 +118,7 @@ export function EventDescriptionGeneratorForm() {
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            Generate Description
+            Hasilkan Deskripsi
           </Button>
         </form>
       </Form>
@@ -128,7 +128,7 @@ export function EventDescriptionGeneratorForm() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Sparkles className="mr-2 h-5 w-5 text-accent" />
-              Generated Event Description
+              Deskripsi Acara yang Dihasilkan
             </CardTitle>
           </CardHeader>
           <CardContent>

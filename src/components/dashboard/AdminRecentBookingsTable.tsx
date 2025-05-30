@@ -4,26 +4,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 interface AdminRecentBookingsTableProps {
   bookings: Booking[];
 }
 
 export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableProps) {
+  const getPaymentStatusText = (status: 'pending' | 'paid' | 'failed') => {
+    switch (status) {
+      case 'paid':
+        return 'Lunas';
+      case 'pending':
+        return 'Tertunda';
+      case 'failed':
+        return 'Gagal';
+      default:
+        return status;
+    }
+  };
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle>Recent Bookings</CardTitle>
-        <CardDescription>Overview of the latest ticket bookings.</CardDescription>
+        <CardTitle>Pemesanan Terbaru</CardTitle>
+        <CardDescription>Ringkasan pemesanan tiket terbaru.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Booking ID</TableHead>
-              <TableHead>Event</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>ID Pemesanan</TableHead>
+              <TableHead>Acara</TableHead>
+              <TableHead>Pengguna</TableHead>
+              <TableHead>Tanggal</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
             </TableRow>
@@ -34,10 +48,10 @@ export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableP
                 <TableCell className="font-medium">{booking.id}</TableCell>
                 <TableCell>{booking.eventName}</TableCell>
                 <TableCell>{booking.userName}</TableCell>
-                <TableCell>{format(new Date(booking.bookingDate), "PP")}</TableCell>
+                <TableCell>{format(new Date(booking.bookingDate), "PP", { locale: idLocale })}</TableCell>
                 <TableCell>
-                  <Badge variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'}>
-                    {booking.paymentStatus}
+                  <Badge variant={booking.paymentStatus === 'paid' ? 'default' : booking.paymentStatus === 'pending' ? 'secondary' : 'destructive'}>
+                    {getPaymentStatusText(booking.paymentStatus)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">Rp {booking.totalPrice.toLocaleString()}</TableCell>

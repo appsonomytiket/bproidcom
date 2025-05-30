@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Bproid.com - Your Event Ticketing Platform',
-  description: 'Discover and book tickets for amazing events with Bproid.com.',
+  title: 'Bproid.com - Platform Tiket Acara Anda',
+  description: 'Temukan dan pesan tiket untuk acara-acara luar biasa dengan Bproid.com.',
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppShell>{children}</AppShell>
       </body>

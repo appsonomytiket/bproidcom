@@ -39,7 +39,7 @@ export default function BookingConfirmationPage() {
           // Data mismatch, might be an old booking or direct navigation
           setDetails({
             bookingId: bookingId as string,
-            eventName: "Unknown Event",
+            eventName: "Acara Tidak Diketahui",
             name: "N/A",
             email: "N/A",
             tickets: 0,
@@ -53,17 +53,17 @@ export default function BookingConfirmationPage() {
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      toast({ title: `${label} Copied!`, description: `${text} has been copied to your clipboard.` });
+      toast({ title: `${label} Disalin!`, description: `${text} telah disalin ke clipboard Anda.` });
     }).catch(err => {
-      toast({ title: "Copy Failed", description: `Could not copy ${label}.`, variant: "destructive" });
-      console.error('Failed to copy: ', err);
+      toast({ title: "Penyalinan Gagal", description: `Tidak dapat menyalin ${label}.`, variant: "destructive" });
+      console.error('Gagal menyalin: ', err);
     });
   };
   
   if (!details) {
     return (
       <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12">
-        <p>Loading booking details...</p>
+        <p>Memuat detail pemesanan...</p>
       </div>
     );
   }
@@ -84,26 +84,26 @@ export default function BookingConfirmationPage() {
           <div className="flex items-center gap-3">
             <CheckCircle className="h-10 w-10" />
             <div>
-              <CardTitle className="text-3xl font-bold">Booking Confirmed!</CardTitle>
-              <CardDescription className="text-primary-foreground/80">Your tickets for {details.eventName} are reserved.</CardDescription>
+              <CardTitle className="text-3xl font-bold">Pemesanan Dikonfirmasi!</CardTitle>
+              <CardDescription className="text-primary-foreground/80">Tiket Anda untuk {details.eventName} telah dipesan.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           <div>
-            <h3 className="text-lg font-semibold mb-2">Booking ID: {details.bookingId}</h3>
+            <h3 className="text-lg font-semibold mb-2">ID Pemesanan: {details.bookingId}</h3>
             <ul className="space-y-1 text-sm text-muted-foreground">
-              <li><strong>Name:</strong> {details.name}</li>
+              <li><strong>Nama:</strong> {details.name}</li>
               <li><strong>Email:</strong> {details.email}</li>
-              <li><strong>Event:</strong> {details.eventName}</li>
-              <li><strong>Tickets:</strong> {details.tickets}</li>
-              <li><strong>Total Price:</strong> Rp {details.totalPrice.toLocaleString()}</li>
+              <li><strong>Acara:</strong> {details.eventName}</li>
+              <li><strong>Tiket:</strong> {details.tickets}</li>
+              <li><strong>Total Harga:</strong> Rp {details.totalPrice.toLocaleString()}</li>
             </ul>
           </div>
 
           {details.referralCode && (
              <div>
-              <h3 className="text-lg font-semibold mb-1">Your Referral Code:</h3>
+              <h3 className="text-lg font-semibold mb-1">Kode Referral Anda:</h3>
               <div className="flex items-center gap-2">
                 <p className="text-lg font-bold text-accent p-2 border border-dashed border-accent rounded-md">
                   {details.referralCode}
@@ -111,48 +111,48 @@ export default function BookingConfirmationPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => copyToClipboard(details.referralCode!, "Referral Code")}
+                  onClick={() => copyToClipboard(details.referralCode!, "Kode Referral")}
                 >
-                  <ClipboardCopy className="h-4 w-4 mr-2" /> Copy
+                  <ClipboardCopy className="h-4 w-4 mr-2" /> Salin
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Share this code with friends! You'll earn a commission if they book using your code.</p>
+              <p className="text-xs text-muted-foreground mt-1">Bagikan kode ini dengan teman! Anda akan mendapatkan komisi jika mereka memesan menggunakan kode Anda.</p>
             </div>
           )}
 
           <div className="space-y-4 rounded-md border bg-secondary/30 p-4">
-            <h3 className="text-lg font-semibold text-primary">Payment Instructions</h3>
-            <p className="text-sm text-muted-foreground">Please complete your payment within 24 hours to secure your tickets. Amount to pay: <strong>Rp {details.totalPrice.toLocaleString()}</strong></p>
+            <h3 className="text-lg font-semibold text-primary">Instruksi Pembayaran</h3>
+            <p className="text-sm text-muted-foreground">Harap selesaikan pembayaran Anda dalam 24 jam untuk mengamankan tiket Anda. Jumlah yang harus dibayar: <strong>Rp {details.totalPrice.toLocaleString()}</strong></p>
             
             <div>
-              <h4 className="font-semibold mb-1">Bank Transfer:</h4>
+              <h4 className="font-semibold mb-1">Transfer Bank:</h4>
               <p className="text-sm">Bank: {paymentInstructions.bankTransfer.bank}</p>
               <div className="flex items-center gap-2">
-                <p className="text-sm">Account Number: {paymentInstructions.bankTransfer.accountNumber}</p>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(paymentInstructions.bankTransfer.accountNumber, "Account Number")}>
+                <p className="text-sm">Nomor Rekening: {paymentInstructions.bankTransfer.accountNumber}</p>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(paymentInstructions.bankTransfer.accountNumber, "Nomor Rekening")}>
                   <ClipboardCopy className="h-3 w-3" />
                 </Button>
               </div>
-              <p className="text-sm">Account Name: {paymentInstructions.bankTransfer.accountName}</p>
+              <p className="text-sm">Atas Nama: {paymentInstructions.bankTransfer.accountName}</p>
             </div>
 
             <div>
               <h4 className="font-semibold mb-1">QRIS:</h4>
-              <p className="text-sm mb-2">Scan the QR code below using your e-wallet or mobile banking app.</p>
+              <p className="text-sm mb-2">Pindai kode QR di bawah menggunakan e-wallet atau aplikasi mobile banking Anda.</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={paymentInstructions.qris} alt="QRIS Payment Code" className="rounded-md border" data-ai-hint="QR code" />
+              <img src={paymentInstructions.qris} alt="Kode Pembayaran QRIS" className="rounded-md border" data-ai-hint="QR code" />
             </div>
-            <p className="text-xs text-muted-foreground">After payment, please send proof of transfer to payments@bproid.com with your Booking ID.</p>
+            <p className="text-xs text-muted-foreground">Setelah pembayaran, harap kirim bukti transfer ke payments@bproid.com beserta ID Pemesanan Anda.</p>
           </div>
         </CardContent>
         <CardFooter className="p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
           <Button variant="outline" asChild>
             <Link href="/">
-              <Download className="mr-2 h-4 w-4" /> Download E-Ticket (Mock)
+              <Download className="mr-2 h-4 w-4" /> Unduh E-Tiket (Contoh)
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/">Back to Home</Link>
+            <Link href="/">Kembali ke Beranda</Link>
           </Button>
         </CardFooter>
       </Card>

@@ -8,7 +8,7 @@ interface EventListProps {
 
 export function EventList({ events }: EventListProps) {
   if (!events || events.length === 0) {
-    return <p className="text-center text-muted-foreground">No events found.</p>;
+    return <p className="text-center text-muted-foreground">Tidak ada acara ditemukan.</p>;
   }
 
   return (

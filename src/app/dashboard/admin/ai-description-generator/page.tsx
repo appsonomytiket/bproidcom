@@ -11,9 +11,9 @@ export default function AiDescriptionGeneratorPage() {
             <div className="flex items-center gap-3">
                 <Bot className="h-10 w-10" />
                 <div>
-                    <CardTitle className="text-3xl font-bold">AI Event Description Generator</CardTitle>
+                    <CardTitle className="text-3xl font-bold">Generator Deskripsi Acara AI</CardTitle>
                     <CardDescription className="text-primary-foreground/80">
-                        Let AI help you craft compelling descriptions for your events.
+                        Biarkan AI membantu Anda membuat deskripsi acara yang menarik.
                     </CardDescription>
                 </div>
             </div>

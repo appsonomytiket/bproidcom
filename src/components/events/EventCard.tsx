@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from "@/components/ui/button";
 import { CalendarDays, MapPin, Tag } from "lucide-react";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale"; // Import Indonesian locale
 import { useState, useEffect } from "react";
 
 interface EventCardProps {
@@ -18,7 +19,8 @@ export function EventCard({ event }: EventCardProps) {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    setFormattedDate(format(new Date(event.date), "PPPp"));
+    // Format date on client-side to avoid hydration mismatch
+    setFormattedDate(format(new Date(event.date), "PPPp", { locale: idLocale }));
   }, [event.date]);
 
   return (
@@ -39,7 +41,7 @@ export function EventCard({ event }: EventCardProps) {
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center">
             <CalendarDays className="mr-2 h-4 w-4" />
-            <span>{formattedDate || "Loading date..."}</span>
+            <span>{formattedDate || "Memuat tanggal..."}</span>
           </div>
           <div className="flex items-center">
             <MapPin className="mr-2 h-4 w-4" />
@@ -56,7 +58,7 @@ export function EventCard({ event }: EventCardProps) {
       </CardContent>
       <CardFooter className="p-6 pt-0">
         <Button asChild className="w-full" variant="default">
-          <Link href={`/events/${event.id}`}>View Details</Link>
+          <Link href={`/events/${event.id}`}>Lihat Detail</Link>
         </Button>
       </CardFooter>
     </Card>

@@ -18,12 +18,12 @@ export default async function AffiliateDashboardPage() {
   return (
     <div className="container py-12">
       <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <h1 className="text-3xl font-bold text-primary">Affiliate Dashboard</h1>
+        <h1 className="text-3xl font-bold text-primary">Dasbor Afiliasi</h1>
         <div className="flex items-center gap-2">
           <UserCircle className="h-6 w-6 text-muted-foreground" />
           <span className="font-medium">{affiliate.name}</span>
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-            <LogOut className="mr-1 h-4 w-4" /> Logout
+            <LogOut className="mr-1 h-4 w-4" /> Keluar
           </Button>
         </div>
       </div>
@@ -33,14 +33,14 @@ export default async function AffiliateDashboardPage() {
         <div className="lg:col-span-1 space-y-6">
             <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle className="flex items-center text-xl"><DollarSign className="mr-2 h-6 w-6 text-accent" />Earnings Summary</CardTitle>
+                <CardTitle className="flex items-center text-xl"><DollarSign className="mr-2 h-6 w-6 text-accent" />Ringkasan Penghasilan</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Earnings:</span>
+                <span className="text-muted-foreground">Total Penghasilan:</span>
                 <span className="font-semibold">Rp {affiliate.totalEarnings.toLocaleString()}</span>
                 </div>
-                <p className="text-xs text-muted-foreground pt-2">Your referral code: 
+                <p className="text-xs text-muted-foreground pt-2">Kode referral Anda: 
                     <span className="ml-1 font-mono text-accent bg-accent/10 px-2 py-1 rounded-md">{affiliate.referralCode}</span> 
                     <Button variant="ghost" size="icon" className="ml-1 h-6 w-6" onClick={() => typeof navigator !== 'undefined' && navigator.clipboard?.writeText(affiliate.referralCode)}>
                         <ClipboardCopy className="h-3 w-3" />
@@ -49,21 +49,21 @@ export default async function AffiliateDashboardPage() {
             </CardContent>
             <CardFooter>
                 <Button className="w-full bg-primary hover:bg-primary/90">
-                    <DollarSign className="mr-2 h-4 w-4" /> Withdraw Earnings
+                    <DollarSign className="mr-2 h-4 w-4" /> Tarik Penghasilan
                 </Button>
             </CardFooter>
             </Card>
 
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><UserCircle className="mr-2 h-6 w-6 text-accent" />My Profile</CardTitle>
+                    <CardTitle className="text-xl flex items-center"><UserCircle className="mr-2 h-6 w-6 text-accent" />Profil Saya</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                    <p><strong>Name:</strong> {affiliate.name}</p>
+                    <p><strong>Nama:</strong> {affiliate.name}</p>
                     <p><strong>Email:</strong> {affiliate.email}</p>
                 </CardContent>
                  <CardFooter>
-                    <Button variant="outline" className="w-full">Edit Profile</Button>
+                    <Button variant="outline" className="w-full">Ubah Profil</Button>
                 </CardFooter>
             </Card>
         </div>
@@ -72,28 +72,28 @@ export default async function AffiliateDashboardPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center text-xl"><Users className="mr-2 h-6 w-6 text-accent" />Referred Sales</CardTitle>
-              <CardDescription>Sales made through your referral code.</CardDescription>
+              <CardTitle className="flex items-center text-xl"><Users className="mr-2 h-6 w-6 text-accent" />Penjualan Referral</CardTitle>
+              <CardDescription>Penjualan yang dilakukan melalui kode referral Anda.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Event</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Commission</TableHead>
+                    <TableHead>Acara</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead className="text-right">Komisi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {affiliate.referredSales.length > 0 ? affiliate.referredSales.map((sale) => (
                     <TableRow key={sale.bookingId}>
                       <TableCell>{sale.eventName}</TableCell>
-                      <TableCell>{new Date(sale.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(sale.date).toLocaleDateString('id-ID')}</TableCell>
                       <TableCell className="text-right">Rp {sale.commission.toLocaleString()}</TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center">No referred sales yet.</TableCell>
+                      <TableCell colSpan={3} className="text-center">Belum ada penjualan referral.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -103,28 +103,28 @@ export default async function AffiliateDashboardPage() {
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center text-xl"><Gift className="mr-2 h-6 w-6 text-accent" />Withdrawal History</CardTitle>
-              <CardDescription>Your past and pending withdrawals.</CardDescription>
+              <CardTitle className="flex items-center text-xl"><Gift className="mr-2 h-6 w-6 text-accent" />Riwayat Penarikan</CardTitle>
+              <CardDescription>Penarikan Anda yang lalu dan yang tertunda.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Tanggal</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {affiliate.withdrawalHistory.length > 0 ? affiliate.withdrawalHistory.map((withdrawal, index) => (
                     <TableRow key={index}>
-                      <TableCell>{new Date(withdrawal.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{withdrawal.status}</TableCell>
+                      <TableCell>{new Date(withdrawal.date).toLocaleDateString('id-ID')}</TableCell>
+                      <TableCell>{withdrawal.status === 'Completed' ? 'Selesai' : withdrawal.status === 'Processing' ? 'Diproses' : withdrawal.status}</TableCell>
                       <TableCell className="text-right">Rp {withdrawal.amount.toLocaleString()}</TableCell>
                     </TableRow>
                   )) : (
                      <TableRow>
-                      <TableCell colSpan={3} className="text-center">No withdrawal history.</TableCell>
+                      <TableCell colSpan={3} className="text-center">Tidak ada riwayat penarikan.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
