@@ -9,8 +9,11 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarFooter, // Ditambahkan
+  useSidebar,    // Ditambahkan
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button'; // Ditambahkan
 import { 
   LayoutList, 
   TicketCheck, 
@@ -20,7 +23,9 @@ import {
   SlidersHorizontal,
   BarChart3,
   Bot,
-  Settings // Contoh ikon tambahan jika diperlukan
+  Settings,
+  PanelLeftOpen,  // Ditambahkan
+  PanelLeftClose, // Ditambahkan
 } from 'lucide-react';
 import Image from 'next/image'; // Untuk logo jika ada
 
@@ -34,29 +39,26 @@ const isActive = (pathname: string, href: string, exact: boolean = false) => {
 
 export function AdminSidebarItems() {
   const pathname = usePathname();
+  const { toggleSidebar, open } = useSidebar(); // Get sidebar state and toggle function
 
   const menuItems = [
     { href: '/dashboard/admin', label: 'Analitik', icon: BarChart3, exact: true },
     { href: '/dashboard/admin/manage-events', label: 'Acara', icon: LayoutList },
-    { href: '/dashboard/admin/orders', label: 'Pesanan', icon: TicketCheck }, // Halaman baru
-    { href: '/dashboard/admin/affiliates-management', label: 'Afiliasi', icon: Share2 }, // Halaman baru (untuk admin)
-    { href: '/dashboard/admin/coupons', label: 'Kupon', icon: BadgePercent }, // Halaman baru
-    { href: '/dashboard/admin/users', label: 'Pengguna', icon: UsersRound }, // Halaman baru
+    { href: '/dashboard/admin/orders', label: 'Pesanan', icon: TicketCheck },
+    { href: '/dashboard/admin/affiliates-management', label: 'Afiliasi', icon: Share2 },
+    { href: '/dashboard/admin/coupons', label: 'Kupon', icon: BadgePercent },
+    { href: '/dashboard/admin/users', label: 'Pengguna', icon: UsersRound },
     { href: '/dashboard/admin/ai-description-generator', label: 'Generator AI', icon: Bot },
-    { href: '/dashboard/admin/settings', label: 'Pengaturan', icon: SlidersHorizontal }, // Halaman baru
+    { href: '/dashboard/admin/settings', label: 'Pengaturan', icon: SlidersHorizontal },
   ];
 
   return (
     <>
       <SidebarHeader className="flex h-16 items-center justify-center p-2">
-        {/* Logo atau Judul Admin - hanya terlihat saat sidebar tidak diciutkan (non-icon mode) */}
-        {/* Ganti dengan logo Anda jika ada */}
         <Link href="/dashboard/admin" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-           {/* <Image src="/logo.png" alt="Admin Logo" width={32} height={32} /> */}
-           <Settings className="h-7 w-7 text-sidebar-primary" /> {/* Contoh ikon jika tidak ada logo teks */}
+           <Settings className="h-7 w-7 text-sidebar-primary" />
           <span className="text-xl font-semibold text-sidebar-foreground">Admin</span>
         </Link>
-         {/* Ikon yang selalu terlihat, bahkan saat diciutkan */}
         <Link href="/dashboard/admin" className="hidden items-center gap-2 group-data-[collapsible=icon]:flex">
            <Settings className="h-7 w-7 text-sidebar-primary" />
         </Link>
@@ -70,7 +72,7 @@ export function AdminSidebarItems() {
                 <SidebarMenuButton
                   isActive={isActive(pathname, item.href, item.exact)}
                   tooltip={{ children: item.label, side: 'right', align: 'center', className: "bg-popover text-popover-foreground" }}
-                  className="justify-start" // Untuk memulai teks dari kiri saat expanded
+                  className="justify-start"
                 >
                   <item.icon className="h-5 w-5 shrink-0" />
                   <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
@@ -80,14 +82,19 @@ export function AdminSidebarItems() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      {/* <SidebarFooter className="p-2 mt-auto border-t border-sidebar-border">
-        <Link href="/logout" passHref legacyBehavior={false}>
-            <SidebarMenuButton tooltip={{ children: "Keluar", side: 'right', align: 'center' }} className="justify-start">
-                <LogOut className="h-5 w-5 shrink-0" />
-                <span className="truncate group-data-[collapsible=icon]:hidden">Keluar</span>
-            </SidebarMenuButton>
-        </Link>
-      </SidebarFooter> */}
+      <SidebarFooter className="p-2 mt-auto border-t border-sidebar-border">
+        <Button
+          variant="ghost"
+          onClick={toggleSidebar}
+          className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center [&>svg]:size-5 [&>svg]:shrink-0"
+          title={open ? "Cuitkan Sidebar" : "Luaskan Sidebar"}
+        >
+          {open ? <PanelLeftClose /> : <PanelLeftOpen />}
+          <span className="truncate group-data-[collapsible=icon]:hidden">
+            {open ? "Cuitkan" : "Luaskan"}
+          </span>
+        </Button>
+      </SidebarFooter>
     </>
   );
 }

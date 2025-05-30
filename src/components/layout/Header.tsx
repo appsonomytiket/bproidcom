@@ -1,10 +1,9 @@
-
 "use client";
 
 import Link from "next/link";
-import { Ticket, Settings, BarChart3, ClipboardList, Bot, PanelLeft, UserCircle, CreditCard, LogOut, ShieldCheck } from "lucide-react";
+import { Ticket, Settings, BarChart3, ClipboardList, Bot, UserCircle, CreditCard, LogOut, ShieldCheck } from "lucide-react"; // PanelLeft dihapus
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from '@/components/ui/sidebar'; // Import SidebarTrigger
+// SidebarTrigger tidak lagi diimpor atau digunakan di sini
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +26,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
-        {/* Tombol trigger sidebar untuk mobile dan desktop (jika diperlukan untuk toggle manual) */}
-        <SidebarTrigger className="mr-3 shrink-0" /> 
+        {/* Tombol trigger sidebar telah dipindahkan ke dalam sidebar itu sendiri */}
+        {/* <SidebarTrigger className="mr-3 shrink-0" />  DIHAPUS */}
 
         <Link href="/" className="flex items-center gap-2 mr-auto"> {/* mr-auto mendorong nav ke kanan */}
           <Ticket className="h-8 w-8 text-primary" />
