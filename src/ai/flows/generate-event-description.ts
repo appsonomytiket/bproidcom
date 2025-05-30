@@ -20,7 +20,7 @@ export type GenerateEventDescriptionInput = z.infer<
 >;
 
 const GenerateEventDescriptionOutputSchema = z.object({
-  description: z.string().describe('The generated event description.'),
+  description: z.string().describe('The generated event description in Indonesian language.'),
 });
 export type GenerateEventDescriptionOutput = z.infer<
   typeof GenerateEventDescriptionOutputSchema
@@ -36,14 +36,14 @@ const prompt = ai.definePrompt({
   name: 'generateEventDescriptionPrompt',
   input: {schema: GenerateEventDescriptionInputSchema},
   output: {schema: GenerateEventDescriptionOutputSchema},
-  prompt: `You are an expert copywriter specializing in creating engaging event descriptions.
+  prompt: `Anda adalah seorang copywriter ahli yang berspesialisasi dalam membuat deskripsi acara yang menarik.
 
-  Based on the following keywords and details, generate a compelling event description.
+  Berdasarkan kata kunci dan detail berikut, hasilkan deskripsi acara yang menarik dalam **Bahasa Indonesia**.
 
-  Keywords: {{{keywords}}}
-  Details: {{{details}}}
+  Kata Kunci: {{{keywords}}}
+  Detail: {{{details}}}
 
-  Event Description:`, // Output should be a paragraph suitable for use as an event description.
+  Deskripsi Acara (dalam Bahasa Indonesia):`,
 });
 
 const generateEventDescriptionFlow = ai.defineFlow(
