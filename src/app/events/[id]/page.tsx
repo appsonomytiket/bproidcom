@@ -1,10 +1,13 @@
 
+"use client"; // Make this a client component
+
 import Image from "next/image";
-import { MOCK_EVENTS } from "@/lib/constants";
+import { useEffect, useState } from "react"; // Import useEffect and useState
+import { MOCK_EVENTS, LOCAL_STORAGE_EVENTS_KEY } from "@/lib/constants"; // Import LOCAL_STORAGE_EVENTS_KEY
 import type { Event } from "@/lib/types";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CalendarDays, MapPin, Users, Tag, Building, Ticket, ListChecks } from "lucide-react";
+import { CalendarDays, MapPin, Users, Tag, Building, Ticket, ListChecks, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
@@ -13,17 +16,62 @@ interface EventDetailPageProps {
   params: { id: string };
 }
 
-async function getEventById(id: string): Promise<Event | undefined> {
+// This function will now be used client-side
+function getEventByIdClientSide(id: string): Event | undefined {
+  let allEvents: Event[] = [];
+  if (typeof window !== 'undefined') {
+    const storedEventsString = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
+    if (storedEventsString) {
+      try {
+        allEvents = JSON.parse(storedEventsString);
+      } catch (e) {
+        console.error("Failed to parse events from localStorage", e);
+        // Fallback to MOCK_EVENTS if localStorage is corrupted
+        allEvents = MOCK_EVENTS;
+      }
+    } else {
+      // If localStorage is empty, use MOCK_EVENTS (though manage-events page should seed it)
+      allEvents = MOCK_EVENTS;
+    }
+  } else {
+    // Fallback for environments where localStorage is not available (should not happen in browser)
+    allEvents = MOCK_EVENTS;
+  }
+  
+  const eventFromStorage = allEvents.find((event) => event.id === id);
+  if (eventFromStorage) {
+    return eventFromStorage;
+  }
+  // If not in localStorage (e.g. direct navigation to a MOCK_EVENT not yet in localStorage)
+  // check MOCK_EVENTS as a final fallback.
   return MOCK_EVENTS.find((event) => event.id === id);
 }
 
-export default async function EventDetailPage({ params }: EventDetailPageProps) {
-  const event = await getEventById(params.id);
 
-  if (!event) {
+export default function EventDetailPage({ params }: EventDetailPageProps) {
+  const [event, setEvent] = useState<Event | null | undefined>(undefined); // undefined for loading, null for not found
+
+  useEffect(() => {
+    if (params.id) {
+      const foundEvent = getEventByIdClientSide(params.id);
+      setEvent(foundEvent || null); // Set to null if not found
+    }
+  }, [params.id]);
+
+  if (event === undefined) {
+    return (
+      <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12 text-center">
+        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+        <p className="text-xl font-semibold">Memuat detail acara...</p>
+      </div>
+    );
+  }
+
+  if (event === null) {
     return (
       <div className="container py-12 text-center">
         <h1 className="text-2xl font-semibold">Acara tidak ditemukan</h1>
+        <p className="text-muted-foreground">Acara dengan ID '{params.id}' tidak dapat ditemukan di penyimpanan lokal atau data mock.</p>
       </div>
     );
   }
@@ -40,8 +88,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 <Image
                   src={event.imageUrl}
                   alt={event.name}
-                  layout="fill"
-                  objectFit="cover"
+                  fill // Use fill instead of layout="fill"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Provide sizes prop
+                  style={{ objectFit: "cover" }} // Use style for objectFit
                   data-ai-hint={`${event.category.toLowerCase()} event`}
                   priority
                 />
@@ -155,8 +204,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   );
 }
 
+// generateStaticParams remains server-side and uses MOCK_EVENTS for build-time generation
 export async function generateStaticParams() {
-  // In a real app, fetch this from your data source (e.g., database)
   const events = MOCK_EVENTS; 
   return events.map((event) => ({
     id: event.id,
