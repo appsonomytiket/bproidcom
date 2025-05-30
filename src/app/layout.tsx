@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SidebarProvider defaultOpen={true}> {/* defaultOpen={false} untuk mulai diciutkan */}
+        <SidebarProvider defaultOpen={true}> {/* Memastikan sidebar dimulai terbuka */}
           <AppShell>{children}</AppShell>
         </SidebarProvider>
       </body>

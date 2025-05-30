@@ -17,7 +17,7 @@ export function AppShell({ children }: AppShellProps) {
         <Sidebar
           side="left"
           variant="sidebar"
-          collapsible="icon" // Diciutkan menjadi ikon, tooltip saat hover
+          collapsible="icon" // Memastikan sidebar dapat diciutkan menjadi ikon
           className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border" // Terapkan warna tema dan border
         >
           <AdminSidebarItems />
