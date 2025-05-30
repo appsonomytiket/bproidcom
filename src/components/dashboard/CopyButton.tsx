@@ -8,17 +8,25 @@ import { useToast } from "@/hooks/use-toast";
 interface CopyButtonProps {
   textToCopy: string;
   label?: string;
+  useOrigin?: boolean; // New prop
 }
 
-export function CopyButton({ textToCopy, label = "Teks" }: CopyButtonProps) {
+export function CopyButton({ textToCopy, label = "Teks", useOrigin = false }: CopyButtonProps) {
   const { toast } = useToast();
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(textToCopy).then(() => {
-        toast({ title: `${label} Disalin!`, description: `${textToCopy} telah disalin ke clipboard Anda.` });
+      let finalStringToCopy = textToCopy;
+      if (useOrigin && typeof window !== 'undefined') {
+        // Ensure the relative path starts with a single slash
+        const relativePath = textToCopy.startsWith('/') ? textToCopy : `/${textToCopy}`;
+        finalStringToCopy = `${window.location.origin}${relativePath}`;
+      }
+
+      navigator.clipboard.writeText(finalStringToCopy).then(() => {
+        toast({ title: `${label} Disalin!`, description: `${finalStringToCopy} telah disalin ke clipboard Anda.` });
       }).catch(err => {
-        toast({ title: "Penyalinan Gagal", description: `Tidak dapat menyalin ${label}.`, variant: "destructive" });
+        toast({ title: "Penyalinan Gagal", description: `Tidak dapat menyalin ${label}. Error: ${err.message}`, variant: "destructive" });
         console.error('Gagal menyalin: ', err);
       });
     } else {
@@ -27,9 +35,10 @@ export function CopyButton({ textToCopy, label = "Teks" }: CopyButtonProps) {
   };
 
   return (
-    <Button variant="ghost" size="icon" className="ml-1 h-6 w-6" onClick={handleCopy} title={`Salin ${label}`}>
-      <ClipboardCopy className="h-3 w-3" />
+    <Button variant="ghost" size="icon" className="ml-1 h-7 w-7 shrink-0" onClick={handleCopy} title={`Salin ${label}`}>
+      <ClipboardCopy className="h-3.5 w-3.5" />
       <span className="sr-only">Salin {label}</span>
     </Button>
   );
 }
+

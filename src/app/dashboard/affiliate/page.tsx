@@ -4,9 +4,9 @@ import type { Affiliate } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, Users, Gift, UserCircle, LogOut } from "lucide-react";
+import { DollarSign, Users, Gift, UserCircle, LogOut, Link as LinkIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { CopyButton } from "@/components/dashboard/CopyButton"; // Import the new component
+import { CopyButton } from "@/components/dashboard/CopyButton"; 
 
 // Simulate fetching affiliate data
 async function getAffiliateData(): Promise<Affiliate> {
@@ -15,6 +15,7 @@ async function getAffiliateData(): Promise<Affiliate> {
 
 export default async function AffiliateDashboardPage() {
   const affiliate = await getAffiliateData();
+  const relativeAffiliateLink = `/?ref=${affiliate.referralCode}`;
 
   return (
     <div className="container py-12">
@@ -36,15 +37,33 @@ export default async function AffiliateDashboardPage() {
             <CardHeader>
                 <CardTitle className="flex items-center text-xl"><DollarSign className="mr-2 h-6 w-6 text-accent" />Ringkasan Penghasilan</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-4">
                 <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Penghasilan:</span>
                 <span className="font-semibold">Rp {affiliate.totalEarnings.toLocaleString()}</span>
                 </div>
-                <p className="text-xs text-muted-foreground pt-2">Kode referral Anda: 
-                    <span className="ml-1 font-mono text-accent bg-accent/10 px-2 py-1 rounded-md">{affiliate.referralCode}</span> 
+                
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Kode Referral Anda:</p>
+                  <div className="flex items-center">
+                    <span className="font-mono text-lg text-accent bg-accent/10 px-3 py-1.5 rounded-md">{affiliate.referralCode}</span>
                     <CopyButton textToCopy={affiliate.referralCode} label="Kode Referral" />
-                </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Link Afiliasi (untuk dibagikan):</p>
+                  <div className="bg-secondary/30 dark:bg-secondary/20 p-3 rounded-md shadow-sm">
+                    <div className="flex items-center mb-2">
+                        <LinkIcon className="h-4 w-4 mr-2 text-primary"/>
+                        <span className="font-mono text-sm text-foreground break-all block">
+                            {`[Alamat Website Anda]${relativeAffiliateLink}`}
+                        </span>
+                    </div>
+                    <CopyButton textToCopy={relativeAffiliateLink} label="Link Afiliasi" useOrigin={true} />
+                    <p className="text-xs text-muted-foreground mt-2">Klik tombol salin di atas. `[Alamat Website Anda]` akan otomatis diganti dengan domain website saat ini ketika disalin.</p>
+                  </div>
+                </div>
             </CardContent>
             <CardFooter>
                 <Button className="w-full bg-primary hover:bg-primary/90">
@@ -135,3 +154,4 @@ export default async function AffiliateDashboardPage() {
     </div>
   );
 }
+
