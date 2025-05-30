@@ -6,9 +6,9 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { CheckCircle, ClipboardCopy, Download, Ticket } from 'lucide-react';
+import { CheckCircle, ClipboardCopy, Download, Ticket, Percent } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { MOCK_USERS } from '@/lib/constants'; // Import MOCK_USERS to find sponsor
+import { MOCK_USERS } from '@/lib/constants'; 
 
 interface BookingDetails {
   bookingId: string;
@@ -16,12 +16,12 @@ interface BookingDetails {
   name: string;
   email: string;
   tickets: number;
-  totalPrice: number;
-  referralCode?: string; // Buyer's new referral code
+  totalPrice: number; // Final price after discount
+  buyerReferralCode?: string; // Buyer's new referral code
   selectedTierName?: string;
   selectedTierPrice?: number;
-  usedReferralCode?: string; // Sponsor's referral code used for this booking
-  sponsorName?: string; // Name of the sponsor
+  couponCode?: string; // Coupon code used
+  discountAmount?: number; // Amount discounted
 }
 
 export default function BookingConfirmationPage() {
@@ -34,32 +34,18 @@ export default function BookingConfirmationPage() {
     if (typeof window !== 'undefined') {
       const storedDetailsString = localStorage.getItem('bookingDetails');
       if (storedDetailsString) {
-        const parsedDetails: Omit<BookingDetails, 'sponsorName' | 'referralCode'> & { usedReferralCode?: string, name: string } = JSON.parse(storedDetailsString);
+        const parsedDetails: Omit<BookingDetails, 'buyerReferralCode'> & { name: string } = JSON.parse(storedDetailsString);
         
         if (parsedDetails.bookingId === bookingId) {
           const buyerReferralCode = `${parsedDetails.name.substring(0,3).toUpperCase()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-          let foundSponsorName: string | undefined = undefined;
-
-          if (parsedDetails.usedReferralCode) {
-            const sponsor = MOCK_USERS.find(user => user.affiliateCode === parsedDetails.usedReferralCode && user.roles.includes('affiliate'));
-            if (sponsor) {
-              foundSponsorName = sponsor.name;
-            } else {
-              // Optionally, handle case where usedReferralCode is present but no matching sponsor found
-              // console.warn(`Sponsor dengan kode ${parsedDetails.usedReferralCode} tidak ditemukan.`);
-            }
-          }
-
+          
           setDetails({
-            ...(parsedDetails as BookingDetails), // Cast back to BookingDetails, assuming parsedDetails aligns
-            bookingId: bookingId as string, // Ensure bookingId from params is used
-            referralCode: buyerReferralCode, 
-                            // @ts-ignore
-            sponsorName: foundSponsorName 
+            ...(parsedDetails as BookingDetails), 
+            bookingId: bookingId as string, 
+            buyerReferralCode: buyerReferralCode,
           });
 
         } else {
-          // Booking ID from URL doesn't match stored details, treat as potentially direct navigation or error
           setDetails({
             bookingId: bookingId as string,
             eventName: "Acara Tidak Diketahui",
@@ -68,12 +54,12 @@ export default function BookingConfirmationPage() {
             tickets: 0,
             totalPrice: 0,
             selectedTierName: "N/A",
-            referralCode: "N/A", // Generate a dummy or leave as N/A
-            sponsorName: undefined
+            buyerReferralCode: "N/A",
+            couponCode: undefined,
+            discountAmount: 0,
           });
         }
       } else {
-         // Handle case where no booking details are found, possibly direct navigation
          setDetails({
             bookingId: bookingId as string,
             eventName: "Detail Pemesanan Tidak Ditemukan",
@@ -82,8 +68,9 @@ export default function BookingConfirmationPage() {
             tickets: 0,
             totalPrice: 0,
             selectedTierName: "N/A",
-            referralCode: "N/A",
-            sponsorName: undefined
+            buyerReferralCode: "N/A",
+            couponCode: undefined,
+            discountAmount: 0,
           });
       }
     }
@@ -115,6 +102,8 @@ export default function BookingConfirmationPage() {
     qris: "https://placehold.co/200x200.png?text=QRIS+Placeholder",
   };
 
+  const originalPriceBeforeDiscount = (details.totalPrice || 0) + (details.discountAmount || 0);
+
   return (
     <div className="container py-12">
       <Card className="mx-auto max-w-2xl shadow-xl">
@@ -138,21 +127,29 @@ export default function BookingConfirmationPage() {
                 <li><strong>Jenis Tiket:</strong> {details.selectedTierName} (Rp {details.selectedTierPrice?.toLocaleString()})</li>
               )}
               <li><strong>Jumlah Tiket:</strong> {details.tickets}</li>
-              <li><strong>Total Harga:</strong> Rp {details.totalPrice.toLocaleString()}</li>
+              {details.couponCode && details.discountAmount && details.discountAmount > 0 && (
+                <>
+                  <li><strong>Subtotal:</strong> Rp {originalPriceBeforeDiscount.toLocaleString()}</li>
+                  <li className="text-green-600">
+                    <strong>Kupon ({details.couponCode}):</strong> - Rp {details.discountAmount.toLocaleString()}
+                  </li>
+                </>
+              )}
+              <li className="font-semibold text-foreground"><strong>Total Bayar:</strong> Rp {details.totalPrice.toLocaleString()}</li>
             </ul>
           </div>
 
-          {details.referralCode && details.referralCode !== "N/A" && (
+          {details.buyerReferralCode && details.buyerReferralCode !== "N/A" && (
              <div>
               <h3 className="text-lg font-semibold mb-1">Kode Referral Anda:</h3>
               <div className="flex items-center gap-2">
                 <p className="text-lg font-bold text-accent p-2 border border-dashed border-accent rounded-md">
-                  {details.referralCode}
+                  {details.buyerReferralCode}
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => copyToClipboard(details.referralCode!, "Kode Referral")}
+                  onClick={() => copyToClipboard(details.buyerReferralCode!, "Kode Referral")}
                 >
                   <ClipboardCopy className="h-4 w-4 mr-2" /> Salin
                 </Button>
@@ -181,19 +178,10 @@ export default function BookingConfirmationPage() {
               <h4 className="font-semibold mb-1">QRIS:</h4>
               <p className="text-sm mb-2">Pindai kode QR di bawah menggunakan e-wallet atau aplikasi mobile banking Anda.</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={paymentInstructions.qris} alt="Kode Pembayaran QRIS" className="rounded-md border" data-ai-hint="QR code" />
+              <img src={paymentInstructions.qris} alt="Kode Pembayaran QRIS" className="rounded-md border" data-ai-hint="QR code"/>
             </div>
             <p className="text-xs text-muted-foreground">Setelah pembayaran, harap kirim bukti transfer ke payments@bproid.com beserta ID Pemesanan Anda. <strong>E-tiket akan dikirimkan ke email Anda setelah pembayaran diverifikasi.</strong></p>
           </div>
-
-          {details.sponsorName && (
-            <div className="mt-6 border-t pt-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                Sponsormu: <span className="font-semibold text-accent">{details.sponsorName}</span>
-              </p>
-            </div>
-          )}
-
         </CardContent>
         <CardFooter className="p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
           <Button

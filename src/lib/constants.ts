@@ -79,7 +79,8 @@ export const MOCK_BOOKINGS: Booking[] = [
     totalPrice: 300000,
     bookingDate: '2024-07-20T10:00:00Z',
     paymentStatus: 'pending',
-    referralCode: 'ANDI123XYZ',
+    // couponCode: undefined, // Example: No coupon used
+    // discountAmount: 0,
   },
   {
     id: 'BK002',
@@ -90,10 +91,11 @@ export const MOCK_BOOKINGS: Booking[] = [
     tickets: 1,
     selectedTierName: 'Regular',
     selectedTierPrice: 750000,
-    totalPrice: 750000,
+    totalPrice: 700000, // Price after potential discount
     bookingDate: '2024-07-22T14:30:00Z',
     paymentStatus: 'paid',
-    referralCode: 'BUDI456ABC',
+    couponCode: 'DISKON50K', 
+    discountAmount: 50000,
   },
 ];
 
@@ -203,11 +205,23 @@ export const MOCK_COUPONS: Coupon[] = [
     code: 'LAUNCHNEW',
     discountType: 'percentage',
     discountValue: 15,
-    expiryDate: formatISO(addMonths(new Date(), -1)),
-    isActive: false,
+    expiryDate: formatISO(addMonths(new Date(), -1)), // Expired
+    isActive: false, // Also inactive
     timesUsed: 50,
     usageLimit: 50,
-    description: 'Kupon peluncuran (kadaluwarsa)',
+    description: 'Kupon peluncuran (kadaluwarsa & tidak aktif)',
+  },
+  {
+    id: 'CPN004',
+    code: 'NOLIMIT',
+    discountType: 'fixed',
+    discountValue: 10000,
+    expiryDate: formatISO(addMonths(new Date(), 6)),
+    isActive: true,
+    timesUsed: 2,
+    // No usageLimit means unlimited uses (practically)
+    // No minPurchase means no minimum purchase
+    description: 'Potongan Rp10.000 tanpa batas penggunaan atau min. pembelian.',
   },
 ];
 

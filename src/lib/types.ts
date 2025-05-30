@@ -24,10 +24,11 @@ export interface Booking {
   userName: string;
   userEmail: string;
   tickets: number;
-  totalPrice: number;
+  totalPrice: number; // This will be the final price after discount
   bookingDate: string;
   paymentStatus: 'pending' | 'paid' | 'failed';
-  referralCode?: string;
+  couponCode?: string; // Replaces referralCode
+  discountAmount?: number; // Amount discounted by coupon
   selectedTierName?: string;
   selectedTierPrice?: number;
 }
@@ -36,7 +37,7 @@ export interface Affiliate {
   id: string;
   name: string;
   email: string;
-  referralCode: string;
+  referralCode: string; // This is the affiliate's own code to share
   totalEarnings: number;
   withdrawalHistory: { date: string; amount: number; status: string }[];
   referredSales: { bookingId: string; eventName: string; commission: number; date: string }[];
@@ -68,9 +69,9 @@ export interface Coupon {
   discountValue: number;
   expiryDate: string; // ISO string date
   isActive: boolean;
-  usageLimit?: number;
-  timesUsed: number;
-  minPurchase?: number;
+  usageLimit?: number; // Optional: total number of times this coupon can be used
+  timesUsed: number; // How many times this coupon has been used
+  minPurchase?: number; // Optional: minimum purchase amount to use this coupon
   description?: string;
 }
 

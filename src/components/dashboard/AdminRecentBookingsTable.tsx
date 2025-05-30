@@ -37,7 +37,7 @@ export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableP
               <TableHead>ID Pemesanan</TableHead>
               <TableHead>Acara</TableHead>
               <TableHead>Pengguna</TableHead>
-              <TableHead>Kode Referral</TableHead>
+              <TableHead>Kupon Digunakan</TableHead>
               <TableHead>Tanggal</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -49,7 +49,7 @@ export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableP
                 <TableCell className="font-medium">{booking.id}</TableCell>
                 <TableCell>{booking.eventName}</TableCell>
                 <TableCell>{booking.userName}</TableCell>
-                <TableCell>{booking.referralCode || "-"}</TableCell>
+                <TableCell>{booking.couponCode || "-"}</TableCell>
                 <TableCell>{format(new Date(booking.bookingDate), "PP", { locale: idLocale })}</TableCell>
                 <TableCell>
                   <Badge variant={booking.paymentStatus === 'paid' ? 'default' : booking.paymentStatus === 'pending' ? 'secondary' : 'destructive'}>
