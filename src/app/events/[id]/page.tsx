@@ -25,7 +25,7 @@ function getEventByIdClientSide(id: string): Event | undefined {
       try {
         allEvents = JSON.parse(storedEventsString);
       } catch (e) {
-        console.error("Failed to parse events from localStorage", e);
+        console.error("Gagal mem-parse acara dari localStorage", e);
         // Fallback to MOCK_EVENTS if localStorage is corrupted
         allEvents = MOCK_EVENTS;
       }
@@ -204,13 +204,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
   );
 }
 
-// generateStaticParams remains server-side and uses MOCK_EVENTS for build-time generation
-export async function generateStaticParams() {
-  const events = MOCK_EVENTS; 
-  return events.map((event) => ({
-    id: event.id,
-  }));
-}
+// generateStaticParams has been removed because this is a Client Component.
 
 // Optional: Revalidate data at intervals if events can change frequently
 // export const revalidate = 3600; // Revalidate every hour

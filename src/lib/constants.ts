@@ -5,6 +5,8 @@ import type { Event, Booking, Affiliate, AdminSaleData, AdminCommissionData } fr
 // Only highly visible "status" like fields are translated here.
 // Full content translation of descriptions etc. should be handled as a content localization task.
 
+export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
+
 export const MOCK_EVENTS: Event[] = [
   {
     id: '1',
