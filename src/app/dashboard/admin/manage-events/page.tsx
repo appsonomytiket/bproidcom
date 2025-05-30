@@ -21,18 +21,16 @@ export default function ManageEventsPage() {
   const [events, setEvents] = useState<FormattedEvent[]>([]);
 
   useEffect(() => {
-    const formatted = MOCK_EVENTS.map(event => ({
+    // Simulate fetching events - in a real app, this might also check localStorage or an API
+    const currentEvents = MOCK_EVENTS; // In a real app, this would be fetched or managed state
+
+    const formatted = currentEvents.map(event => ({
       ...event,
       formattedDate: format(new Date(event.date), "PPpp", { locale: idLocale }),
     }));
     setEvents(formatted);
   }, []);
 
-  const handleAddEvent = () => {
-    // Placeholder for add event functionality
-    console.log("Tambah Acara Baru");
-    alert("Fungsionalitas Tambah Acara belum diimplementasikan.");
-  };
 
   const handleEditEvent = (id: string) => {
     // Placeholder for edit event functionality
@@ -58,9 +56,11 @@ export default function ManageEventsPage() {
           <ClipboardList className="mr-3 h-8 w-8" />
           Kelola Acara
         </h1>
-        <Button onClick={handleAddEvent} className="bg-primary hover:bg-primary/90">
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Tambah Acara Baru
+        <Button asChild className="bg-primary hover:bg-primary/90">
+          <Link href="/dashboard/admin/manage-events/new">
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Tambah Acara Baru
+          </Link>
         </Button>
       </div>
 
