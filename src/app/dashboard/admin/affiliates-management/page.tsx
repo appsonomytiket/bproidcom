@@ -2,6 +2,7 @@
 // src/app/dashboard/admin/affiliates-management/page.tsx
 "use client";
 
+import * as React from 'react'; // Ditambahkan impor React
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
