@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Ticket, LayoutDashboard, Bot, UserCircle, BarChart3, Settings } from "lucide-react";
+import { Ticket, LayoutDashboard, Bot, UserCircle, BarChart3, Settings, ClipboardList } from "lucide-react"; // Added ClipboardList
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -47,6 +47,12 @@ export function Header() {
                 <Link href="/dashboard/admin" className="flex items-center">
                   <BarChart3 className="mr-2 h-4 w-4" />
                   Analitik Penjualan
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin/manage-events" className="flex items-center">
+                  <ClipboardList className="mr-2 h-4 w-4" />
+                  Kelola Acara
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
