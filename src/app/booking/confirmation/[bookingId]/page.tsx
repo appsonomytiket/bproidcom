@@ -157,14 +157,18 @@ export default function BookingConfirmationPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={paymentInstructions.qris} alt="Kode Pembayaran QRIS" className="rounded-md border" data-ai-hint="QR code" />
             </div>
-            <p className="text-xs text-muted-foreground">Setelah pembayaran, harap kirim bukti transfer ke payments@bproid.com beserta ID Pemesanan Anda.</p>
+            <p className="text-xs text-muted-foreground">Setelah pembayaran, harap kirim bukti transfer ke payments@bproid.com beserta ID Pemesanan Anda. <strong>E-tiket akan dikirimkan ke email Anda setelah pembayaran diverifikasi.</strong></p>
           </div>
         </CardContent>
         <CardFooter className="p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <Button variant="outline" asChild>
-            <Link href="/">
-              <Download className="mr-2 h-4 w-4" /> Unduh E-Tiket (Contoh)
-            </Link>
+          <Button
+            variant="outline"
+            onClick={() => toast({
+              title: "E-Tiket Akan Dikirim",
+              description: "E-tiket Anda akan dikirimkan ke alamat email terdaftar setelah pembayaran berhasil diverifikasi oleh tim kami.",
+            })}
+          >
+            <Download className="mr-2 h-4 w-4" /> Informasi E-Tiket
           </Button>
           <Button asChild>
             <Link href="/">Kembali ke Beranda</Link>
