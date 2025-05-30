@@ -4,7 +4,7 @@
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { AdminCommissionData } from "@/lib/types";
-import { ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 interface AdminCommissionChartProps {
   data: AdminCommissionData[];
@@ -23,6 +23,13 @@ export function AdminCommissionChart({ data }: AdminCommissionChartProps) {
 
   const translatedData = data.map(item => ({...item, month: translateMonth(item.month)}));
 
+  const chartConfig = {
+    commissions: {
+      label: "Komisi (Rb IDR)",
+      color: "hsl(var(--accent))",
+    },
+  } satisfies ChartConfig;
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -31,15 +38,26 @@ export function AdminCommissionChart({ data }: AdminCommissionChartProps) {
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={translatedData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `Rp${value}K`} />
-              <Tooltip content={<ChartTooltipContent indicator="dot" />} cursor={{ stroke: "hsl(var(--accent))", strokeWidth: 2, strokeDasharray: "3 3" }} />
-              <Line type="monotone" dataKey="commissions" stroke="hsl(var(--accent))" strokeWidth={2} activeDot={{ r: 8, style: { fill: "hsl(var(--accent))" } }} />
-            </LineChart>
-          </ResponsiveContainer>
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart accessibilityLayer data={translatedData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `Rp${value}K`} />
+                <Tooltip
+                  content={<ChartTooltipContent indicator="dot" />}
+                  cursor={{ stroke: "hsl(var(--accent))", strokeWidth: 2, strokeDasharray: "3 3" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="commissions"
+                  stroke="var(--color-commissions)"
+                  strokeWidth={2}
+                  activeDot={{ r: 8, style: { fill: "var(--color-commissions)" } }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </div>
       </CardContent>
     </Card>

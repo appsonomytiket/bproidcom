@@ -4,7 +4,7 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import type { AdminSaleData } from "@/lib/types"
-import { ChartTooltipContent } from "@/components/ui/chart"
+import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 
 interface AdminSalesChartProps {
   data: AdminSaleData[];
@@ -23,6 +23,12 @@ export function AdminSalesChart({ data }: AdminSalesChartProps) {
 
   const translatedData = data.map(item => ({...item, month: translateMonth(item.month)}));
 
+  const chartConfig = {
+    sales: {
+      label: "Penjualan (Rb IDR)",
+      color: "hsl(var(--primary))",
+    },
+  } satisfies ChartConfig;
 
   return (
     <Card className="shadow-lg">
@@ -32,15 +38,20 @@ export function AdminSalesChart({ data }: AdminSalesChartProps) {
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={translatedData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `Rp${value}K`} />
-              <Tooltip content={<ChartTooltipContent />} cursor={{ fill: "hsl(var(--accent) / 0.2)" }} />
-              <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart accessibilityLayer data={translatedData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `Rp${value}K`} />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--accent) / 0.2)" }}
+                  content={<ChartTooltipContent />}
+                />
+                <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </div>
       </CardContent>
     </Card>
