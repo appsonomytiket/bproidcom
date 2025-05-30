@@ -31,6 +31,7 @@ export interface Booking {
   discountAmount?: number; // Amount discounted by coupon
   selectedTierName?: string;
   selectedTierPrice?: number;
+  usedReferralCode?: string; // For tracking which affiliate's code was used by buyer
 }
 
 export interface Affiliate {
@@ -77,6 +78,12 @@ export interface Coupon {
 
 export type UserRole = 'admin' | 'affiliate' | 'customer';
 
+export interface UserBankDetails {
+  bankName?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -89,4 +96,6 @@ export interface User {
   totalPurchases: number;
   ticketsPurchased: number;
   affiliateCode?: string; // If user is an affiliate
+  bankDetails?: UserBankDetails; // Added for affiliate payment
 }
+

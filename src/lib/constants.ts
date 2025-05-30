@@ -4,6 +4,8 @@ import { addMonths, formatISO, subDays } from 'date-fns';
 
 export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events';
 export const LOCAL_STORAGE_COUPONS_KEY = 'bproid_managed_coupons';
+export const LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX = 'bproid_user_settings_';
+
 
 export const MOCK_EVENTS: Event[] = [
   {
@@ -134,7 +136,35 @@ export const MOCK_ADMIN_COMMISSION_DATA: AdminCommissionData[] = [
 ];
 
 export const MOCK_RECENT_BOOKINGS_ADMIN: Booking[] = [
-  ...MOCK_BOOKINGS,
+  // ...MOCK_BOOKINGS, // Spread existing bookings
+  {
+    id: 'BK001',
+    eventId: '1',
+    eventName: 'Konser Musik Merdeka',
+    userName: 'Andi Pratama',
+    userEmail: 'andi@example.com',
+    tickets: 2,
+    selectedTierName: 'Festival',
+    selectedTierPrice: 150000,
+    totalPrice: 300000,
+    bookingDate: '2024-07-20T10:00:00Z',
+    paymentStatus: 'pending',
+  },
+  {
+    id: 'BK002',
+    eventId: '2',
+    eventName: 'Workshop Digital Marketing 2024',
+    userName: 'Budi Santoso',
+    userEmail: 'budi@example.com',
+    tickets: 1,
+    selectedTierName: 'Regular',
+    selectedTierPrice: 750000,
+    totalPrice: 700000, // Price after potential discount
+    bookingDate: '2024-07-22T14:30:00Z',
+    paymentStatus: 'paid',
+    couponCode: 'DISKON50K', 
+    discountAmount: 50000,
+  },
   {
     id: 'BK003',
     eventId: '1',
@@ -230,7 +260,7 @@ export const MOCK_USERS: User[] = [
     id: 'usr_001',
     name: 'Adam',
     email: 'adamtest123@mailnesia.com',
-    avatarUrl: 'https://placehold.co/40x40.png',
+    avatarUrl: 'https://placehold.co/80x80.png',
     roles: ['affiliate'],
     accountStatus: 'Aktif',
     joinDate: formatISO(subDays(new Date(), 60)), // Joined 60 days ago
@@ -238,12 +268,17 @@ export const MOCK_USERS: User[] = [
     totalPurchases: 0,
     ticketsPurchased: 0,
     affiliateCode: 'ADAMXYZ',
+    bankDetails: {
+        bankName: 'Bank Fiktif Cabang Keren',
+        accountNumber: '9876543210',
+        accountHolderName: 'Adam Perkasa',
+    }
   },
   {
     id: 'usr_002',
     name: 'Budi Santoso',
     email: 'budisantoso@mailnesia.com',
-    avatarUrl: 'https://placehold.co/40x40.png',
+    avatarUrl: 'https://placehold.co/80x80.png',
     roles: ['customer', 'affiliate'],
     accountStatus: 'Aktif',
     joinDate: formatISO(subDays(new Date(), 30)), // Joined 30 days ago
@@ -256,7 +291,7 @@ export const MOCK_USERS: User[] = [
     id: 'usr_003',
     name: 'Admin Webmaster',
     email: 'zanuradigital@gmail.com',
-    avatarUrl: 'https://placehold.co/40x40.png',
+    avatarUrl: 'https://placehold.co/80x80.png',
     roles: ['admin', 'affiliate'],
     accountStatus: 'Aktif',
     joinDate: formatISO(subDays(new Date(), 120)), // Joined 120 days ago
@@ -264,12 +299,17 @@ export const MOCK_USERS: User[] = [
     totalPurchases: 0,
     ticketsPurchased: 0,
     affiliateCode: 'AFFADMINXYZ',
+    bankDetails: {
+        bankName: 'Bank Admin Sejahtera',
+        accountNumber: '1122334455',
+        accountHolderName: 'Admin Webmaster Utama',
+    }
   },
   {
     id: 'usr_004',
     name: 'Citra Ayu',
     email: 'citra.ayu@example.com',
-    avatarUrl: 'https://placehold.co/40x40.png',
+    avatarUrl: 'https://placehold.co/80x80.png',
     roles: ['customer'],
     accountStatus: 'Aktif',
     joinDate: formatISO(subDays(new Date(), 10)),
@@ -281,7 +321,7 @@ export const MOCK_USERS: User[] = [
     id: 'usr_005',
     name: 'Dewi Lestari',
     email: 'dewi.lestari@example.net',
-    avatarUrl: 'https://placehold.co/40x40.png',
+    avatarUrl: 'https://placehold.co/80x80.png',
     roles: ['customer'],
     accountStatus: 'Ditangguhkan',
     joinDate: formatISO(subDays(new Date(), 90)),
@@ -290,3 +330,4 @@ export const MOCK_USERS: User[] = [
     ticketsPurchased: 1,
   },
 ];
+
