@@ -6,74 +6,81 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { CheckCircle, ClipboardCopy, Download, Ticket, Percent } from 'lucide-react';
+import { CheckCircle, ClipboardCopy, Download, Ticket, Percent, Loader2 } from 'lucide-react'; // Ditambahkan Loader2
 import { useToast } from '@/hooks/use-toast';
-import { MOCK_USERS } from '@/lib/constants'; 
+// import { MOCK_USERS } from '@/lib/constants'; // Tidak lagi diperlukan untuk referral code generation di sini
 
-interface BookingDetails {
+interface BookingDetailsStorage {
   bookingId: string;
   eventName: string;
   name: string;
   email: string;
   tickets: number;
-  totalPrice: number; // Final price after discount
-  buyerReferralCode?: string; // Buyer's new referral code
+  totalPrice: number;
+  buyerReferralCode?: string; 
   selectedTierName?: string;
   selectedTierPrice?: number;
-  couponCode?: string; // Coupon code used
-  discountAmount?: number; // Amount discounted
+  couponCode?: string; 
+  discountAmount?: number; 
 }
 
 export default function BookingConfirmationPage() {
   const params = useParams();
   const { bookingId } = params;
-  const [details, setDetails] = useState<BookingDetails | null>(null);
+  const [details, setDetails] = useState<BookingDetailsStorage | null>(null);
+  const [loading, setLoading] = useState(true); // State untuk loading
   const { toast } = useToast();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    setLoading(true);
+    if (typeof window !== 'undefined' && bookingId) {
       const storedDetailsString = localStorage.getItem('bookingDetails');
       if (storedDetailsString) {
-        const parsedDetails: Omit<BookingDetails, 'buyerReferralCode'> & { name: string } = JSON.parse(storedDetailsString);
-        
-        if (parsedDetails.bookingId === bookingId) {
-          const buyerReferralCode = `${parsedDetails.name.substring(0,3).toUpperCase()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        try {
+          const parsedDetails: BookingDetailsStorage = JSON.parse(storedDetailsString);
           
-          setDetails({
-            ...(parsedDetails as BookingDetails), 
-            bookingId: bookingId as string, 
-            buyerReferralCode: buyerReferralCode,
-          });
-
-        } else {
-          setDetails({
-            bookingId: bookingId as string,
-            eventName: "Acara Tidak Diketahui",
-            name: "N/A",
-            email: "N/A",
-            tickets: 0,
-            totalPrice: 0,
-            selectedTierName: "N/A",
-            buyerReferralCode: "N/A",
-            couponCode: undefined,
-            discountAmount: 0,
-          });
+          // Pastikan ID pemesanan dari localStorage cocok dengan ID dari URL
+          if (parsedDetails.bookingId === bookingId) {
+            setDetails(parsedDetails);
+          } else {
+            // Jika tidak cocok, berarti data localStorage mungkin untuk booking lain atau sudah usang
+            console.warn("Booking ID mismatch between URL and localStorage.");
+            setDetails({ // Set ke data minimal error
+              bookingId: bookingId as string,
+              eventName: "Detail Pemesanan Tidak Cocok",
+              name: "N/A",
+              email: "N/A",
+              tickets: 0,
+              totalPrice: 0,
+              buyerReferralCode: "N/A"
+            });
+          }
+        } catch (e) {
+          console.error("Gagal mem-parse bookingDetails dari localStorage:", e);
+           setDetails({ // Set ke data minimal error jika parse gagal
+              bookingId: bookingId as string,
+              eventName: "Kesalahan Data Pemesanan",
+              name: "N/A",
+              email: "N/A",
+              tickets: 0,
+              totalPrice: 0,
+              buyerReferralCode: "N/A"
+            });
         }
       } else {
-         setDetails({
+        // Jika tidak ada data di localStorage sama sekali
+         setDetails({ // Set ke data minimal error
             bookingId: bookingId as string,
             eventName: "Detail Pemesanan Tidak Ditemukan",
             name: "N/A",
             email: "N/A",
             tickets: 0,
             totalPrice: 0,
-            selectedTierName: "N/A",
-            buyerReferralCode: "N/A",
-            couponCode: undefined,
-            discountAmount: 0,
+            buyerReferralCode: "N/A"
           });
       }
     }
+    setLoading(false);
   }, [bookingId]);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -85,10 +92,11 @@ export default function BookingConfirmationPage() {
     });
   };
   
-  if (!details) {
+  if (loading || !details) { // Tampilkan loading jika loading true atau details belum ada
     return (
-      <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12">
-        <p>Memuat detail pemesanan...</p>
+      <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12 text-center">
+        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+        <p className="text-xl font-semibold">Memuat detail pemesanan...</p>
       </div>
     );
   }

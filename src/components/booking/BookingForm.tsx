@@ -16,13 +16,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // Ditambahkan useSearchParams
 import type { Event, EventPriceTier, Coupon } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Ticket, User, Mail, Tag, Percent, CheckCircle, AlertCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Ticket, User, Mail, Tag, Percent, CheckCircle, Loader2 } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 import { MOCK_COUPONS, LOCAL_STORAGE_COUPONS_KEY } from "@/lib/constants";
 import { parseISO } from "date-fns";
+import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
 
 const bookingFormSchema = z.object({
   name: z.string().min(2, { message: "Nama minimal 2 karakter." }),
@@ -40,7 +41,9 @@ interface BookingFormProps {
 
 export function BookingForm({ event }: BookingFormProps) {
   const router = useRouter();
+  const searchParamsHook = useSearchParams(); // Untuk mengambil kode referral dari URL
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
   const [selectedTier, setSelectedTier] = useState<EventPriceTier | undefined>(
     event.priceTiers && event.priceTiers.length > 0 ? event.priceTiers[0] : undefined
   );
@@ -74,15 +77,16 @@ export function BookingForm({ event }: BookingFormProps) {
   useEffect(() => {
     const tier = event.priceTiers.find(t => t.name === currentSelectedTierName);
     setSelectedTier(tier);
-    // Reset coupon if tier or tickets change, as discount might no longer be valid or optimal
     setAppliedCoupon(null);
     setDiscountAmount(0);
-  }, [currentSelectedTierName, currentTickets, event.priceTiers]);
+    setCouponInput(""); // Reset input kupon juga
+    form.setValue("couponCode", ""); // Reset nilai kupon di form
+  }, [currentSelectedTierName, currentTickets, event.priceTiers, form]);
 
   const subtotalPrice = selectedTier ? currentTickets * selectedTier.price : 0;
   const finalTotalPrice = subtotalPrice - discountAmount;
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     if (!couponInput.trim()) {
       toast({ title: "Kode Kupon Kosong", description: "Silakan masukkan kode kupon.", variant: "destructive" });
       return;
@@ -92,106 +96,129 @@ export function BookingForm({ event }: BookingFormProps) {
       return;
     }
 
-    let allCoupons: Coupon[] = [];
-    try {
-      const storedCouponsString = localStorage.getItem(LOCAL_STORAGE_COUPONS_KEY);
-      allCoupons = storedCouponsString ? JSON.parse(storedCouponsString) : MOCK_COUPONS;
-    } catch (e) {
-      allCoupons = MOCK_COUPONS; // Fallback
-    }
-    
-    const couponToApply = allCoupons.find(c => c.code.toUpperCase() === couponInput.toUpperCase());
+    // Mengambil kupon dari database Supabase
+    const { data: couponToApply, error: couponFetchError } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', couponInput.toUpperCase())
+      .single();
 
-    if (!couponToApply) {
-      toast({ title: "Kupon Tidak Valid", description: "Kode kupon tidak ditemukan.", variant: "destructive" });
+    if (couponFetchError || !couponToApply) {
+      toast({ title: "Kupon Tidak Valid", description: "Kode kupon tidak ditemukan atau terjadi kesalahan.", variant: "destructive" });
       setAppliedCoupon(null); setDiscountAmount(0);
       return;
     }
-    if (!couponToApply.isActive) {
+    if (!couponToApply.is_active) {
       toast({ title: "Kupon Tidak Aktif", description: "Kupon ini sudah tidak aktif.", variant: "destructive" });
       setAppliedCoupon(null); setDiscountAmount(0);
       return;
     }
-    if (parseISO(couponToApply.expiryDate) < new Date()) {
+    if (parseISO(couponToApply.expiry_date) < new Date()) {
       toast({ title: "Kupon Kedaluwarsa", description: "Kupon ini sudah kedaluwarsa.", variant: "destructive" });
       setAppliedCoupon(null); setDiscountAmount(0);
       return;
     }
-    if (couponToApply.minPurchase && subtotalPrice < couponToApply.minPurchase) {
-      toast({ title: "Minimal Pembelian", description: `Minimal pembelian untuk kupon ini adalah Rp ${couponToApply.minPurchase.toLocaleString()}.`, variant: "destructive" });
+    if (couponToApply.min_purchase && subtotalPrice < couponToApply.min_purchase) {
+      toast({ title: "Minimal Pembelian", description: `Minimal pembelian untuk kupon ini adalah Rp ${couponToApply.min_purchase.toLocaleString()}.`, variant: "destructive" });
       setAppliedCoupon(null); setDiscountAmount(0);
       return;
     }
-    if (couponToApply.usageLimit && couponToApply.timesUsed >= couponToApply.usageLimit) {
+    if (couponToApply.usage_limit && couponToApply.times_used >= couponToApply.usage_limit) {
       toast({ title: "Batas Penggunaan Kupon", description: "Kupon ini telah mencapai batas penggunaan.", variant: "destructive" });
       setAppliedCoupon(null); setDiscountAmount(0);
       return;
     }
 
     let calculatedDiscount = 0;
-    if (couponToApply.discountType === 'percentage') {
-      calculatedDiscount = (subtotalPrice * couponToApply.discountValue) / 100;
+    if (couponToApply.discount_type === 'percentage') {
+      calculatedDiscount = (subtotalPrice * couponToApply.discount_value) / 100;
     } else { // fixed
-      calculatedDiscount = couponToApply.discountValue;
+      calculatedDiscount = couponToApply.discount_value;
     }
-    // Ensure discount doesn't exceed subtotal
     calculatedDiscount = Math.min(calculatedDiscount, subtotalPrice); 
 
-    setAppliedCoupon(couponToApply);
+    setAppliedCoupon(couponToApply as unknown as Coupon); // Cast karena tipe dari DB mungkin sedikit berbeda
     setDiscountAmount(calculatedDiscount);
-    form.setValue("couponCode", couponToApply.code); // Set for submission
+    form.setValue("couponCode", couponToApply.code);
     toast({ title: "Kupon Diterapkan!", description: `Anda mendapat diskon Rp ${calculatedDiscount.toLocaleString()}.` });
   };
 
 
   async function onSubmit(values: BookingFormValues) {
     if (!selectedTier) {
-      toast({
-        title: "Kesalahan Pemesanan",
-        description: "Tier tiket tidak valid.",
-        variant: "destructive",
-      });
+      toast({ title: "Kesalahan Pemesanan", description: "Tier tiket tidak valid.", variant: "destructive" });
       return;
     }
     
-    const bookingId = `BK-${Date.now().toString().slice(-6)}`;
-    
-    // Increment timesUsed for the applied coupon in localStorage
-    if (appliedCoupon) {
-      try {
-        const storedCouponsString = localStorage.getItem(LOCAL_STORAGE_COUPONS_KEY);
-        let allCoupons: Coupon[] = storedCouponsString ? JSON.parse(storedCouponsString) : MOCK_COUPONS;
-        const updatedCoupons = allCoupons.map(c => 
-          c.id === appliedCoupon.id ? { ...c, timesUsed: c.timesUsed + 1 } : c
-        );
-        localStorage.setItem(LOCAL_STORAGE_COUPONS_KEY, JSON.stringify(updatedCoupons));
-      } catch (e) {
-        console.error("Gagal memperbarui penggunaan kupon:", e);
-        // Proceed with booking anyway, but log error
+    startTransition(async () => {
+      let userId;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userId = user.id;
       }
-    }
 
-    toast({
-      title: "Pemesanan Terkirim!",
-      description: `Pemesanan Anda untuk ${event.name} (${selectedTier.name}) sedang diproses.`,
+      const usedReferralCode = searchParamsHook.get('ref') || undefined;
+
+      const bookingPayload = {
+        event_id: event.id,
+        user_id: userId,
+        num_tickets: values.tickets,
+        selected_tier_name: selectedTier.name,
+        coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
+        user_name: values.name,
+        user_email: values.email,
+        used_referral_code: usedReferralCode,
+      };
+
+      try {
+        const { data: functionResponse, error: functionError } = await supabase.functions.invoke(
+          'create-booking',
+          { body: bookingPayload }
+        );
+
+        if (functionError) {
+          console.error("Edge function error:", functionError);
+          throw new Error(functionError.message || 'Gagal memanggil fungsi pemesanan.');
+        }
+        
+        if (functionResponse.error) {
+            console.error("Error from edge function logic:", functionResponse.error, functionResponse.details);
+            throw new Error(functionResponse.error || 'Terjadi kesalahan pada server saat memproses pemesanan.');
+        }
+
+
+        toast({
+          title: "Pemesanan Terkirim!",
+          description: `Pemesanan Anda untuk ${event.name} (${selectedTier.name}) sedang diproses.`,
+        });
+
+        if (typeof window !== 'undefined') {
+          // Simpan detail yang dibutuhkan halaman konfirmasi
+          localStorage.setItem('bookingDetails', JSON.stringify({
+            bookingId: functionResponse.bookingId, // Dari respons fungsi
+            eventName: functionResponse.eventName,
+            name: values.name,
+            email: values.email,
+            tickets: values.tickets, // atau functionResponse.numTickets
+            totalPrice: functionResponse.totalPrice,
+            buyerReferralCode: functionResponse.buyerReferralCode,
+            selectedTierName: functionResponse.selectedTierName,
+            selectedTierPrice: selectedTier.price, // Ambil dari state atau event prop
+            couponCode: functionResponse.couponCode,
+            discountAmount: functionResponse.discountAmount,
+          }));
+        }
+        
+        router.push(`/booking/confirmation/${functionResponse.bookingId}`);
+
+      } catch (error: any) {
+        toast({
+          title: "Gagal Memproses Pemesanan",
+          description: error.message || "Terjadi masalah saat menghubungi server.",
+          variant: "destructive",
+        });
+      }
     });
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('bookingDetails', JSON.stringify({
-        name: values.name,
-        email: values.email,
-        tickets: values.tickets,
-        bookingId,
-        eventName: event.name,
-        totalPrice: finalTotalPrice, // Store final price
-        selectedTierName: selectedTier.name,
-        selectedTierPrice: selectedTier.price,
-        couponCode: appliedCoupon ? appliedCoupon.code : undefined,
-        discountAmount: discountAmount,
-      }));
-    }
-    
-    router.push(`/booking/confirmation/${bookingId}`);
   }
 
   return (
@@ -279,7 +306,7 @@ export function BookingForm({ event }: BookingFormProps) {
                 placeholder="Masukkan kode kupon" 
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value)}
-                disabled={!!appliedCoupon} // Disable if coupon already applied
+                disabled={!!appliedCoupon}
               />
             </FormControl>
             <Button 
@@ -314,8 +341,8 @@ export function BookingForm({ event }: BookingFormProps) {
         <div className="text-lg font-semibold">
           Total Harga: Rp {finalTotalPrice.toLocaleString()}
         </div>
-        <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={!selectedTier}>
-          Pesan Sekarang
+        <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={!selectedTier || isPending}>
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Pesan Sekarang"}
         </Button>
       </form>
     </Form>
