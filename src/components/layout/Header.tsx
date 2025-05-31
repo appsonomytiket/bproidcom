@@ -1,9 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
-import { Ticket, Settings, BarChart3, ClipboardList, Bot, UserCircle, CreditCard, LogOut, ShieldCheck } from "lucide-react"; // PanelLeft dihapus
+import { Ticket, Settings, BarChart3, ClipboardList, UserCircle, CreditCard, LogOut, ShieldCheck } from "lucide-react"; // Bot icon removed
 import { Button } from "@/components/ui/button";
-// SidebarTrigger tidak lagi diimpor atau digunakan di sini
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,11 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Mock user data for display purposes
 const mockUser = {
   name: "Admin Webmaster",
   email: "zanuradigital@gmail.com",
-  avatarUrl: "https://placehold.co/40x40.png", // Placeholder avatar
+  avatarUrl: "https://placehold.co/40x40.png",
   role: "Admin",
 };
 
@@ -26,15 +25,11 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
-        {/* Tombol trigger sidebar telah dipindahkan ke dalam sidebar itu sendiri */}
-        {/* <SidebarTrigger className="mr-3 shrink-0" />  DIHAPUS */}
-
-        <Link href="/" className="flex items-center gap-2 mr-auto"> {/* mr-auto mendorong nav ke kanan */}
+        <Link href="/" className="flex items-center gap-2 mr-auto">
           <Ticket className="h-8 w-8 text-primary" />
           <span className="text-2xl font-bold text-primary">Bproid</span>
         </Link>
         
-        {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 md:flex">
           <Button variant="link" asChild className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground hover:no-underline">
             <Link href="/">Acara</Link>
@@ -43,7 +38,6 @@ export function Header() {
             <Link href="/dashboard/affiliate">Dasbor Afiliasi</Link>
           </Button>
           
-          {/* Admin Area Dropdown - Consider removing if sidebar is primary admin nav */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-sm font-medium text-foreground/70 transition-colors hover:text-foreground">
@@ -65,16 +59,10 @@ export function Header() {
                   Kelola Acara
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/admin/ai-description-generator" className="flex items-center">
-                  <Bot className="mr-2 h-4 w-4" />
-                  Alat Deskripsi AI
-                </Link>
-              </DropdownMenuItem>
+              {/* Tautan ke Generator Deskripsi AI dihapus dari sini */}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* User Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -107,7 +95,6 @@ export function Header() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                {/* Assuming this link is for user's purchased tickets, adjust if necessary */}
                 <Link href="/my-tickets" className="flex items-center">
                   <CreditCard className="mr-2 h-4 w-4" />
                   <span>Tiket Saya</span>
@@ -121,7 +108,6 @@ export function Header() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                {/* Adjust logout functionality as needed */}
                 <button onClick={() => alert("Fungsi Keluar belum diimplementasikan")} className="w-full flex items-center">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Keluar</span>
@@ -131,7 +117,6 @@ export function Header() {
           </DropdownMenu>
         </nav>
 
-        {/* Mobile Navigation Trigger (Hamburger for Admin/User menu) */}
         <div className="flex items-center gap-2 md:hidden">
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -175,12 +160,7 @@ export function Header() {
                   Kelola Acara
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/admin/ai-description-generator" className="flex items-center">
-                  <Bot className="mr-2 h-4 w-4" />
-                  Alat Deskripsi AI
-                </Link>
-              </DropdownMenuItem>
+              {/* Tautan ke Generator Deskripsi AI dihapus dari sini */}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/user/settings" className="flex items-center">

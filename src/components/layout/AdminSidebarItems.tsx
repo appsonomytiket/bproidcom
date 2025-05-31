@@ -9,11 +9,11 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter, // Ditambahkan
-  useSidebar,    // Ditambahkan
+  SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button'; // Ditambahkan
+import { Button } from '@/components/ui/button';
 import { 
   LayoutList, 
   TicketCheck, 
@@ -22,14 +22,13 @@ import {
   UsersRound, 
   SlidersHorizontal,
   BarChart3,
-  Bot,
+  // Bot, // Icon Bot dihapus
   Settings,
-  PanelLeftOpen,  // Ditambahkan
-  PanelLeftClose, // Ditambahkan
+  PanelLeftOpen,
+  PanelLeftClose,
 } from 'lucide-react';
-import Image from 'next/image'; // Untuk logo jika ada
+import Image from 'next/image';
 
-// Fungsi bantuan untuk menentukan apakah tautan aktif
 const isActive = (pathname: string, href: string, exact: boolean = false) => {
   if (exact) {
     return pathname === href;
@@ -39,7 +38,7 @@ const isActive = (pathname: string, href: string, exact: boolean = false) => {
 
 export function AdminSidebarItems() {
   const pathname = usePathname();
-  const { toggleSidebar, open } = useSidebar(); // Get sidebar state and toggle function
+  const { toggleSidebar, open } = useSidebar();
 
   const menuItems = [
     { href: '/dashboard/admin', label: 'Analitik', icon: BarChart3, exact: true },
@@ -48,7 +47,7 @@ export function AdminSidebarItems() {
     { href: '/dashboard/admin/affiliates-management', label: 'Afiliasi', icon: Share2 },
     { href: '/dashboard/admin/coupons', label: 'Kupon', icon: BadgePercent },
     { href: '/dashboard/admin/users', label: 'Pengguna', icon: UsersRound },
-    { href: '/dashboard/admin/ai-description-generator', label: 'Generator AI', icon: Bot },
+    // { href: '/dashboard/admin/ai-description-generator', label: 'Generator AI', icon: Bot }, // Item menu Generator AI dihapus
     { href: '/dashboard/admin/settings', label: 'Pengaturan', icon: SlidersHorizontal },
   ];
 
@@ -64,7 +63,7 @@ export function AdminSidebarItems() {
         </Link>
       </SidebarHeader>
       <Separator className="mb-1 bg-sidebar-border" />
-      <SidebarContent className="flex-1 p-2"> {/* flex-1 agar konten mengisi ruang */}
+      <SidebarContent className="flex-1 p-2">
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>

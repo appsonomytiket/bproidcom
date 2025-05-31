@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
 config();
 
-import '@/ai/flows/generate-event-description.ts';
+// The AI Description Generator flow has been removed.
+// import '@/ai/flows/generate-event-description.ts';
