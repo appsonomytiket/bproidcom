@@ -1,4 +1,6 @@
 
+"use client"; // Ditambahkan untuk memastikan ini adalah Client Component
+
 import type { Booking } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
