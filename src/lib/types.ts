@@ -32,6 +32,7 @@ export interface Booking {
   selectedTierName?: string;
   selectedTierPrice?: number;
   usedReferralCode?: string; // For tracking which affiliate's code was used by buyer
+  ticket_pdf_url?: string; // URL ke PDF tiket yang digenerate
 }
 
 export interface Affiliate {
