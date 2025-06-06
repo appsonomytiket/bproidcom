@@ -22,10 +22,10 @@ import {
   UsersRound, 
   SlidersHorizontal,
   BarChart3,
-  // Bot, // Icon Bot dihapus
   Settings,
   PanelLeftOpen,
   PanelLeftClose,
+  QrCode, // Ditambahkan icon QrCode
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -44,10 +44,10 @@ export function AdminSidebarItems() {
     { href: '/dashboard/admin', label: 'Analitik', icon: BarChart3, exact: true },
     { href: '/dashboard/admin/manage-events', label: 'Acara', icon: LayoutList },
     { href: '/dashboard/admin/orders', label: 'Pesanan', icon: TicketCheck },
+    { href: '/dashboard/admin/scan-ticket', label: 'Scan Tiket', icon: QrCode }, // Ditambahkan menu Scan Tiket
     { href: '/dashboard/admin/affiliates-management', label: 'Afiliasi', icon: Share2 },
     { href: '/dashboard/admin/coupons', label: 'Kupon', icon: BadgePercent },
     { href: '/dashboard/admin/users', label: 'Pengguna', icon: UsersRound },
-    // { href: '/dashboard/admin/ai-description-generator', label: 'Generator AI', icon: Bot }, // Item menu Generator AI dihapus
     { href: '/dashboard/admin/settings', label: 'Pengaturan', icon: SlidersHorizontal },
   ];
 
@@ -85,7 +85,7 @@ export function AdminSidebarItems() {
         <Button
           variant="ghost"
           onClick={toggleSidebar}
-          className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center [&>svg]:size-5 [&>svg]:shrink-0"
+          className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:bg-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center [&>svg]:size-5 [&>svg]:shrink-0"
           title={open ? "Cuitkan Sidebar" : "Luaskan Sidebar"}
         >
           {open ? <PanelLeftClose /> : <PanelLeftOpen />}

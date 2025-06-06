@@ -1,11 +1,42 @@
 
 [functions.create-booking]
 enabled = true
-verify_jwt = true
-import_map = "./functions/create-booking/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/create-booking/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/create-booking/*.html" ]
+# verify_jwt = true # Mungkin false jika tamu bisa memulai pemesanan sebelum login
+verify_jwt = false 
+import_map = "./functions/_shared/import_map.json" // Ganti jika create-booking punya import_map sendiri
+entrypoint = "./functions/create-booking/index.ts" // Ganti nama file jika Anda menggantinya ke initiate-payment
+
+[functions.initiate-payment]
+enabled = true
+verify_jwt = false # Tamu bisa memulai pembayaran
+import_map = "./functions/_shared/import_map.json" 
+entrypoint = "./functions/initiate-payment/index.ts"
+
+[functions.midtrans-webhook]
+enabled = true
+verify_jwt = false # Webhook tidak menggunakan JWT user, tapi signature Midtrans
+import_map = "./functions/_shared/import_map.json"
+entrypoint = "./functions/midtrans-webhook/index.ts"
+
+[functions.validate-ticket]
+enabled = true
+verify_jwt = true # Hanya admin terautentikasi yang bisa validasi
+import_map = "./functions/_shared/import_map.json"
+entrypoint = "./functions/validate-ticket/index.ts"
+
+// Tambahkan fungsi lain seperti activate-affiliate, process-withdrawal, dll. di sini
+// saat Anda mengembangkannya.
+
+// Pastikan Anda membuat file import_map.json di supabase/functions/_shared/
+// Contoh supabase/functions/_shared/import_map.json:
+// {
+//   "imports": {
+//     "supabase": "https://esm.sh/@supabase/supabase-js@2",
+//     "pdf-lib": "https://esm.sh/pdf-lib@1.17.1?pin=v135",
+//     "qrcode": "https://deno.land/x/qrcode@v2.0.0/mod.ts"
+//     // tambahkan dependensi lain yang dipakai bersama di sini
+//   }
+// }
+// Dan setiap fungsi (mis. initiate-payment/deno.json) akan me-refer ke import_map bersama ini
+// atau bisa memiliki deno.json sendiri jika dependensinya spesifik.
+

@@ -1,13 +1,12 @@
 
-// This function is now repurposed to INITIATE a booking and payment with Midtrans
-// It will NOT finalize the booking or send tickets directly.
-// That will be handled by the midtrans-webhook function.
+// File: supabase/functions/initiate-payment/index.ts
+// Menggantikan fungsi create-booking lama untuk memulai pembayaran.
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-// Midtrans client library (conceptual - you'd use the actual Midtrans SDK or HTTP calls)
-// For Deno, you might need to fetch or use a Deno-compatible library.
-// import midtransClient from 'https://esm.sh/midtrans-client'; // Example, might not work directly in Deno
+// Untuk Midtrans, Anda mungkin perlu menggunakan `fetch` secara langsung atau pustaka HTTP client Deno
+// Karena SDK Node.js Midtrans mungkin tidak langsung kompatibel.
+// import midtransClient from 'midtrans-client'; // Ini untuk Node.js, perlu adaptasi untuk Deno
 
 interface InitiatePaymentPayload {
   event_id: string;
@@ -37,7 +36,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // 1. Fetch event details
     const { data: event, error: eventError } = await supabaseAdmin
       .from('events')
       .select('id, name, price_tiers, available_tickets')
@@ -71,7 +69,6 @@ Deno.serve(async (req) => {
     let appliedCouponId: string | null = null;
     let validCouponCodeFromDb: string | null = null;
 
-    // 2. Validate coupon (server-side)
     if (coupon_code) {
       const { data: coupon, error: couponError } = await supabaseAdmin
         .from('coupons')
@@ -96,10 +93,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Create an initial booking record with 'pending' status
-    const bookingId = crypto.randomUUID(); // This will be our Midtrans order_id
+    const bookingId = crypto.randomUUID();
 
-    const initialBookingPayload = {
+    const initialBookingPayloadDb = {
       id: bookingId,
       event_id: event.id,
       user_id: user_id || null,
@@ -107,24 +103,23 @@ Deno.serve(async (req) => {
       user_name: user_name,
       user_email: user_email,
       tickets: num_tickets,
-      total_price: finalTotalPrice, // Final price after potential coupon
+      total_price: finalTotalPrice,
       booking_date: new Date().toISOString(),
-      payment_status: 'pending', // IMPORTANT
+      payment_status: 'pending' as const,
       coupon_id: appliedCouponId,
       coupon_code: validCouponCodeFromDb,
       discount_amount: discountAmount,
       selected_tier_name: selectedTier.name,
       selected_tier_price: tierPrice,
       used_referral_code: used_referral_code || null,
-      // buyer_referral_code will be generated after successful payment by webhook
-      midtrans_order_id: bookingId, // Store our bookingId as Midtrans order_id
+      midtrans_order_id: bookingId,
       checked_in: false,
     };
 
     const { data: newBooking, error: bookingInsertError } = await supabaseAdmin
       .from('bookings')
-      .insert(initialBookingPayload)
-      .select('id, total_price') // Select only what's needed for Midtrans
+      .insert(initialBookingPayloadDb)
+      .select('id, total_price')
       .single();
 
     if (bookingInsertError) {
@@ -134,111 +129,84 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. CONCEPTUAL: Create Midtrans Transaction
-    // In a real scenario, you would use Midtrans's SDK or make an HTTP request to their API.
-    // Ensure Midtrans Server Key and Client Key are set as environment variables in Supabase Function settings.
     const MIDTRANS_SERVER_KEY = Deno.env.get('MIDTRANS_SERVER_KEY');
-    const MIDTRANS_CLIENT_KEY = Deno.env.get('NEXT_PUBLIC_MIDTRANS_CLIENT_KEY'); // Client key for Snap.js, can also be from env
+    // const MIDTRANS_CLIENT_KEY = Deno.env.get('NEXT_PUBLIC_MIDTRANS_CLIENT_KEY'); // Client Key akan digunakan di frontend
     const MIDTRANS_IS_PRODUCTION = Deno.env.get('MIDTRANS_IS_PRODUCTION') === 'true';
 
-    if (!MIDTRANS_SERVER_KEY || !MIDTRANS_CLIENT_KEY) {
-        console.error("Midtrans keys are not configured in environment variables.");
-        return new Response(JSON.stringify({ error: "Konfigurasi pembayaran tidak lengkap." }), {
+    if (!MIDTRANS_SERVER_KEY) {
+        console.error("Midtrans Server Key is not configured.");
+        return new Response(JSON.stringify({ error: "Konfigurasi server pembayaran tidak lengkap." }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
         });
     }
     
-    // Example Midtrans parameter (adjust based on Midtrans API documentation)
+    const midtransApiUrl = MIDTRANS_IS_PRODUCTION 
+      ? 'https://api.midtrans.com/snap/v1/transactions' 
+      : 'https://api.sandbox.midtrans.com/snap/v1/transactions';
+    
+    const midtransAuthString = btoa(`${MIDTRANS_SERVER_KEY}:`);
+
     const midtransParams = {
       transaction_details: {
-        order_id: newBooking.id, // Use your unique booking ID
-        gross_amount: newBooking.total_price, // Use the final calculated price
+        order_id: newBooking.id,
+        gross_amount: newBooking.total_price,
       },
       customer_details: {
         first_name: user_name,
         email: user_email,
-        // phone: "YOUR_CUSTOMER_PHONE" // Optional
       },
-      // item_details: [ // Optional
-      //   {
-      //     id: event.id,
-      //     price: selectedTier.price,
-      //     quantity: num_tickets,
-      //     name: `${event.name} - ${selectedTier.name}`
-      //   }
-      // ],
-      // expiry: { // Optional: Set transaction expiry
-      //   start_time: new Date().toISOString().replace(/\\.\\d{3}Z$/, "+0700"), // Current time in "YYYY-MM-DD HH:mm:ss Z"
-      //   unit: "minutes",
-      //   duration: 60
-      // },
-      // enabled_payments: ["credit_card", "gopay", "shopeepay", "bca_va", "bni_va", "bri_va"] // Optional
+      // Anda bisa menambahkan item_details, expiry, enabled_payments, dll. di sini
     };
 
-    // CONCEPTUAL: Midtrans API call to create transaction
-    // const midtransApiUrl = MIDTRANS_IS_PRODUCTION 
-    //   ? 'https://api.midtrans.com/snap/v1/transactions' 
-    //   : 'https://api.sandbox.midtrans.com/snap/v1/transactions';
-
-    // const midtransAuthString = btoa(`${MIDTRANS_SERVER_KEY}:`); // Basic Auth: ServerKey as username, empty password
-    
     let midtransToken: string | null = null;
-    let midtransRedirectUrl: string | null = null;
-
+    
     try {
-      // This is a conceptual representation. Replace with actual Midtrans SDK or HTTP call.
-      // Using a dummy response for now.
-      // const response = await fetch(midtransApiUrl, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Accept': 'application/json',
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Basic ${midtransAuthString}`
-      //   },
-      //   body: JSON.stringify(midtransParams)
-      // });
-      // const midtransResponseData = await response.json();
-      // if (!response.ok || midtransResponseData.error_messages) {
-      //   console.error("Midtrans API error:", midtransResponseData);
-      //   throw new Error(midtransResponseData.error_messages ? midtransResponseData.error_messages.join(", ") : "Failed to create Midtrans transaction");
-      // }
-      // midtransToken = midtransResponseData.token;
-      // midtransRedirectUrl = midtransResponseData.redirect_url;
+      const response = await fetch(midtransApiUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${midtransAuthString}`
+        },
+        body: JSON.stringify(midtransParams)
+      });
       
-      // DUMMY TOKEN FOR TESTING (Remove in production)
-      midtransToken = `dummy-midtrans-token-${newBooking.id}-${Date.now()}`;
-      console.warn("USING DUMMY MIDTRANS TOKEN. REPLACE WITH ACTUAL MIDTRANS INTEGRATION.");
-      
-      if (!midtransToken) {
-         throw new Error("Midtrans token not received.");
+      const midtransResponseData = await response.json();
+
+      if (!response.ok || midtransResponseData.error_messages || !midtransResponseData.token) {
+        console.error("Midtrans API error:", midtransResponseData);
+        const errorMessages = midtransResponseData.error_messages ? midtransResponseData.error_messages.join(", ") : "Failed to create Midtrans transaction";
+        // Rollback or mark booking as failed if Midtrans fails
+        await supabaseAdmin.from('bookings').update({ payment_status: 'failed' }).eq('id', newBooking.id);
+        return new Response(JSON.stringify({ error: 'Gagal membuat transaksi pembayaran dengan Midtrans.', details: errorMessages }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+        });
       }
+      midtransToken = midtransResponseData.token;
 
     } catch (midtransError) {
        console.error("Error creating Midtrans transaction:", midtransError);
-       // Optionally, update booking status to 'failed' here or mark it for cleanup
-       return new Response(JSON.stringify({ error: 'Gagal membuat transaksi pembayaran.', details: midtransError.message }), {
+       await supabaseAdmin.from('bookings').update({ payment_status: 'failed' }).eq('id', newBooking.id);
+       return new Response(JSON.stringify({ error: 'Gagal menghubungi server pembayaran.', details: midtransError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
       });
     }
 
-    // Store Midtrans token in booking if needed (optional)
-    const { error: updateBookingWithMidtransError } = await supabaseAdmin
+    const { error: updateBookingWithMidtransTokenError } = await supabaseAdmin
       .from('bookings')
       .update({ midtrans_token: midtransToken })
       .eq('id', newBooking.id);
 
-    if (updateBookingWithMidtransError) {
-      console.error("Error updating booking with Midtrans token:", updateBookingWithMidtransError);
-      // Non-critical, proceed with returning token to client
+    if (updateBookingWithMidtransTokenError) {
+      console.error("Error updating booking with Midtrans token:", updateBookingWithMidtransTokenError);
+      // Non-critical for client, but log it.
     }
 
-    // 5. Return Midtrans token or redirect_url to frontend
     return new Response(
       JSON.stringify({
         message: 'Payment initiation successful!',
         booking_id: newBooking.id,
-        midtrans_token: midtransToken, // For Snap.js
-        midtrans_redirect_url: midtransRedirectUrl, // If using redirect flow
+        midtrans_token: midtransToken,
         total_price: newBooking.total_price
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -251,5 +219,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-// Rename this file to `initiate-payment/index.ts` and deploy it.
-// The old `create-booking` logic for PDF and email is now conceptually moved to `midtrans-webhook`.

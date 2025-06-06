@@ -1,0 +1,8 @@
+
+{
+  "imports": {
+    "supabase": "https://esm.sh/@supabase/supabase-js@2",
+    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1?pin=v135",
+    "qrcode": "https://deno.land/x/qrcode@v2.0.0/mod.ts"
+  }
+}

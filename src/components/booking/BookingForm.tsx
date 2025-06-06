@@ -16,14 +16,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter, useSearchParams } from "next/navigation"; // Ditambahkan useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Event, EventPriceTier, Coupon } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Ticket, User, Mail, Tag, Percent, CheckCircle, Loader2 } from "lucide-react";
+import { Ticket, User, Mail, Tag, Percent, CheckCircle, Loader2, CreditCard } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
-import { MOCK_COUPONS, LOCAL_STORAGE_COUPONS_KEY } from "@/lib/constants";
+import { supabase } from "@/lib/supabaseClient";
 import { parseISO } from "date-fns";
-import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
+
+// Script tag for Midtrans Snap.js - to be added in _document.tsx or RootLayout if not already present
+// For this component, we'll assume it's globally available.
+declare global {
+  interface Window {
+    snap: any; // Midtrans Snap.js will attach itself to window.snap
+  }
+}
 
 const bookingFormSchema = z.object({
   name: z.string().min(2, { message: "Nama minimal 2 karakter." }),
@@ -41,9 +48,10 @@ interface BookingFormProps {
 
 export function BookingForm({ event }: BookingFormProps) {
   const router = useRouter();
-  const searchParamsHook = useSearchParams(); // Untuk mengambil kode referral dari URL
+  const searchParamsHook = useSearchParams();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [selectedTier, setSelectedTier] = useState<EventPriceTier | undefined>(
     event.priceTiers && event.priceTiers.length > 0 ? event.priceTiers[0] : undefined
   );
@@ -63,6 +71,20 @@ export function BookingForm({ event }: BookingFormProps) {
   });
 
   useEffect(() => {
+    // Load Midtrans Snap.js script
+    const script = document.createElement('script');
+    script.src = process.env.NEXT_PUBLIC_MIDTRANS_SNAP_JS_URL || "https://app.sandbox.midtrans.com/snap/snap.js"; // Use sandbox for dev, production for live
+    script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "");
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    }
+  }, []);
+
+
+  useEffect(() => {
     if (event.priceTiers && event.priceTiers.length > 0 && !form.getValues("selectedTierName")) {
       const defaultTier = event.priceTiers[0];
       form.setValue("selectedTierName", defaultTier.name);
@@ -79,14 +101,15 @@ export function BookingForm({ event }: BookingFormProps) {
     setSelectedTier(tier);
     setAppliedCoupon(null);
     setDiscountAmount(0);
-    setCouponInput(""); // Reset input kupon juga
-    form.setValue("couponCode", ""); // Reset nilai kupon di form
+    setCouponInput("");
+    form.setValue("couponCode", "");
   }, [currentSelectedTierName, currentTickets, event.priceTiers, form]);
 
   const subtotalPrice = selectedTier ? currentTickets * selectedTier.price : 0;
   const finalTotalPrice = subtotalPrice - discountAmount;
 
   const handleApplyCoupon = async () => {
+    // ... (Coupon logic remains largely the same, fetching from Supabase)
     if (!couponInput.trim()) {
       toast({ title: "Kode Kupon Kosong", description: "Silakan masukkan kode kupon.", variant: "destructive" });
       return;
@@ -96,7 +119,6 @@ export function BookingForm({ event }: BookingFormProps) {
       return;
     }
 
-    // Mengambil kupon dari database Supabase
     const { data: couponToApply, error: couponFetchError } = await supabase
       .from('coupons')
       .select('*')
@@ -132,12 +154,12 @@ export function BookingForm({ event }: BookingFormProps) {
     let calculatedDiscount = 0;
     if (couponToApply.discount_type === 'percentage') {
       calculatedDiscount = (subtotalPrice * couponToApply.discount_value) / 100;
-    } else { // fixed
+    } else {
       calculatedDiscount = couponToApply.discount_value;
     }
     calculatedDiscount = Math.min(calculatedDiscount, subtotalPrice); 
 
-    setAppliedCoupon(couponToApply as unknown as Coupon); // Cast karena tipe dari DB mungkin sedikit berbeda
+    setAppliedCoupon(couponToApply as unknown as Coupon);
     setDiscountAmount(calculatedDiscount);
     form.setValue("couponCode", couponToApply.code);
     toast({ title: "Kupon Diterapkan!", description: `Anda mendapat diskon Rp ${calculatedDiscount.toLocaleString()}.` });
@@ -149,7 +171,12 @@ export function BookingForm({ event }: BookingFormProps) {
       toast({ title: "Kesalahan Pemesanan", description: "Tier tiket tidak valid.", variant: "destructive" });
       return;
     }
+    if (!window.snap) {
+        toast({ title: "Kesalahan Pembayaran", description: "Layanan pembayaran tidak tersedia saat ini. Mohon coba lagi nanti.", variant: "destructive" });
+        return;
+    }
     
+    setIsPaymentProcessing(true);
     startTransition(async () => {
       let userId;
       const { data: { user } } = await supabase.auth.getUser();
@@ -159,7 +186,7 @@ export function BookingForm({ event }: BookingFormProps) {
 
       const usedReferralCode = searchParamsHook.get('ref') || undefined;
 
-      const bookingPayload = {
+      const paymentPayload = {
         event_id: event.id,
         user_id: userId,
         num_tickets: values.tickets,
@@ -168,55 +195,103 @@ export function BookingForm({ event }: BookingFormProps) {
         user_name: values.name,
         user_email: values.email,
         used_referral_code: usedReferralCode,
+        // final_total_price: finalTotalPrice, // The Edge Function will recalculate this securely
       };
 
       try {
-        const { data: functionResponse, error: functionError } = await supabase.functions.invoke(
-          'create-booking',
-          { body: bookingPayload }
+        // Panggil Edge Function untuk initiate payment dan mendapatkan Midtrans token
+        const { data: paymentResponse, error: paymentError } = await supabase.functions.invoke(
+          'initiate-payment', // Ganti nama fungsi jika berbeda
+          { body: paymentPayload }
         );
 
-        if (functionError) {
-          console.error("Edge function error:", functionError);
-          throw new Error(functionError.message || 'Gagal memanggil fungsi pemesanan.');
+        if (paymentError || paymentResponse.error) {
+          console.error("Payment initiation error:", paymentError || paymentResponse.error);
+          throw new Error(paymentError?.message || paymentResponse?.error || 'Gagal memulai pembayaran.');
         }
         
-        if (functionResponse.error) {
-            console.error("Error from edge function logic:", functionResponse.error, functionResponse.details);
-            throw new Error(functionResponse.error || 'Terjadi kesalahan pada server saat memproses pemesanan.');
+        const midtransToken = paymentResponse.midtrans_token;
+        if (!midtransToken) {
+            throw new Error('Token pembayaran Midtrans tidak diterima.');
         }
 
-
-        toast({
-          title: "Pemesanan Terkirim!",
-          description: `Pemesanan Anda untuk ${event.name} (${selectedTier.name}) sedang diproses.`,
+        // Gunakan Midtrans Snap.js untuk menampilkan popup pembayaran
+        window.snap.pay(midtransToken, {
+          onSuccess: function(result: any){
+            console.log('Payment Success:', result);
+            toast({
+              title: "Pembayaran Berhasil!",
+              description: "E-tiket Anda akan segera dikirimkan melalui email.",
+            });
+            // Simpan detail dasar untuk halaman konfirmasi sederhana atau pengalihan
+             if (typeof window !== 'undefined') {
+              localStorage.setItem('bookingDetails', JSON.stringify({
+                bookingId: result.order_id, // order_id dari Midtrans harusnya booking_id kita
+                eventName: event.name,
+                name: values.name,
+                email: values.email,
+                tickets: values.tickets,
+                totalPrice: finalTotalPrice, // Atau ambil dari result jika ada
+                paymentStatus: 'paid',
+              }));
+            }
+            router.push(`/booking/confirmation/${result.order_id}?status=success`);
+            setIsPaymentProcessing(false);
+          },
+          onPending: function(result: any){
+            console.log('Payment Pending:', result);
+            toast({
+              title: "Pembayaran Tertunda",
+              description: "Selesaikan pembayaran Anda. Cek email untuk instruksi lebih lanjut.",
+              duration: 5000,
+            });
+             if (typeof window !== 'undefined') {
+               localStorage.setItem('bookingDetails', JSON.stringify({
+                bookingId: result.order_id,
+                eventName: event.name,
+                name: values.name,
+                email: values.email,
+                tickets: values.tickets,
+                totalPrice: finalTotalPrice,
+                paymentStatus: 'pending',
+              }));
+            }
+            router.push(`/booking/confirmation/${result.order_id}?status=pending`);
+            setIsPaymentProcessing(false);
+          },
+          onError: function(result: any){
+            console.error('Payment Error:', result);
+            toast({
+              title: "Pembayaran Gagal",
+              description: "Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.",
+              variant: "destructive",
+            });
+            setIsPaymentProcessing(false);
+          },
+          onClose: function(){
+            console.log('Payment popup closed');
+            // Jika user menutup popup sebelum pembayaran selesai
+            // Jangan tampilkan toast error kecuali benar-benar error dari Midtrans
+            if (!isPaymentProcessing) { // Check jika bukan karena error/success/pending
+                 toast({
+                    title: "Pembayaran Dibatalkan",
+                    description: "Anda menutup jendela pembayaran.",
+                    variant: "default", // atau "destructive" jika dianggap penting
+                    duration: 3000
+                });
+            }
+            setIsPaymentProcessing(false); // Selalu set false di onClose
+          }
         });
-
-        if (typeof window !== 'undefined') {
-          // Simpan detail yang dibutuhkan halaman konfirmasi
-          localStorage.setItem('bookingDetails', JSON.stringify({
-            bookingId: functionResponse.bookingId, // Dari respons fungsi
-            eventName: functionResponse.eventName,
-            name: values.name,
-            email: values.email,
-            tickets: values.tickets, // atau functionResponse.numTickets
-            totalPrice: functionResponse.totalPrice,
-            buyerReferralCode: functionResponse.buyerReferralCode,
-            selectedTierName: functionResponse.selectedTierName,
-            selectedTierPrice: selectedTier.price, // Ambil dari state atau event prop
-            couponCode: functionResponse.couponCode,
-            discountAmount: functionResponse.discountAmount,
-          }));
-        }
-        
-        router.push(`/booking/confirmation/${functionResponse.bookingId}`);
+        // Tidak perlu setIsPaymentProcessing(false) di sini karena snap.pay bersifat async dan callback akan menanganinya
 
       } catch (error: any) {
         toast({
-          title: "Gagal Memproses Pemesanan",
+          title: "Gagal Memproses Pembayaran",
           description: error.message || "Terjadi masalah saat menghubungi server.",
           variant: "destructive",
         });
+        setIsPaymentProcessing(false);
       }
     });
   }
@@ -341,8 +416,13 @@ export function BookingForm({ event }: BookingFormProps) {
         <div className="text-lg font-semibold">
           Total Harga: Rp {finalTotalPrice.toLocaleString()}
         </div>
-        <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={!selectedTier || isPending}>
-          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Pesan Sekarang"}
+        <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={!selectedTier || isPending || isPaymentProcessing}>
+          {isPaymentProcessing || isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <CreditCard className="mr-2 h-4 w-4" />
+          )}
+          {isPaymentProcessing ? "Memproses..." : isPending ? "Memuat..." : "Lanjut ke Pembayaran"}
         </Button>
       </form>
     </Form>

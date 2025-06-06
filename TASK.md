@@ -3,183 +3,154 @@
 
 Ini adalah daftar tugas yang lebih detail berdasarkan rencana pengembangan. Tandai item sebagai selesai ([x]) saat dikerjakan.
 
-## Fase 1: Inti Platform Tiket & Manajemen Pengguna Dasar
+## Fase 1: Inti Platform Tiket & Manajemen Pengguna Dasar (Supabase & Midtrans)
 
 ### Database (Supabase)
 -   [ ] **Skema & Tabel:**
     -   [x] Buat tabel `events` (dengan kolom `id`, `name`, `date`, `location`, `price_tiers` (jsonb), `description`, `image_url`, `organizer`, `category`, `available_tickets`, `created_at`, `updated_at`).
     -   [ ] Buat tabel `users` (profil publik: `id` (FK ke `auth.users.id`), `name`, `email`, `avatar_url`, `roles` (jsonb), `account_status`, `join_date`, `last_login`, `total_purchases`, `tickets_purchased`, `affiliate_code`, `bank_details` (jsonb), `created_at`, `updated_at`).
     -   [ ] Buat tabel `coupons` (`id`, `code`, `discount_type`, `discount_value`, `expiry_date`, `is_active`, `usage_limit`, `times_used`, `min_purchase`, `description`, `created_at`, `updated_at`).
-    -   [ ] Buat tabel `bookings` (`id`, `event_id` (FK), `user_id` (FK), `event_name`, `user_name`, `user_email`, `tickets`, `total_price`, `booking_date`, `payment_status`, `coupon_id` (FK), `coupon_code`, `discount_amount`, `selected_tier_name`, `selected_tier_price`, `used_referral_code`, `buyer_referral_code`, `ticket_pdf_url`, `created_at`, `updated_at`).
+    -   [ ] Buat tabel `bookings` (`id`, `event_id` (FK), `user_id` (FK), `event_name`, `user_name`, `user_email`, `tickets`, `total_price`, `booking_date`, `payment_status` (`pending`, `paid`, `failed`, `expired`), `coupon_id` (FK), `coupon_code`, `discount_amount`, `selected_tier_name`, `selected_tier_price`, `used_referral_code`, `buyer_referral_code`, `ticket_pdf_url`, `midtrans_token` (opsional), `midtrans_redirect_url` (opsional), `midtrans_order_id`, `checked_in` (boolean, default false), `checked_in_at` (timestamptz), `created_at`, `updated_at`).
 -   [ ] **Row Level Security (RLS):**
-    -   [ ] Terapkan RLS awal untuk tabel `events` (misalnya, publik bisa baca, admin bisa tulis).
-    -   [ ] Terapkan RLS untuk tabel `users` (pengguna bisa update profil sendiri, admin bisa kelola).
-    -   [ ] Terapkan RLS untuk tabel `coupons` (admin bisa kelola, fungsi booking bisa baca).
-    -   [ ] Terapkan RLS untuk tabel `bookings` (pengguna bisa baca booking sendiri, admin bisa baca semua, fungsi booking bisa tulis).
--   [ ] **Fungsi & Trigger Database:**
+    -   [ ] Terapkan RLS awal untuk tabel `events`.
+    -   [ ] Terapkan RLS untuk tabel `users`.
+    -   [ ] Terapkan RLS untuk tabel `coupons`.
+    -   [ ] Terapkan RLS untuk tabel `bookings`.
+-   [x] **Fungsi & Trigger Database:**
     -   [x] Implementasikan DB Function `handle_new_user` dan Trigger untuk menyinkronkan `auth.users` ke `public.users`.
+-   [ ] **Supabase Storage:**
+    -   [ ] Buat bucket `bproid-tickets` (atau nama serupa) untuk menyimpan PDF tiket.
+    -   [ ] Atur policies untuk bucket (misalnya, service_role bisa tulis, publik bisa baca).
 
 ### Autentikasi (Supabase Auth)
 -   [ ] **Frontend:**
     -   [ ] Buat komponen/halaman untuk Login Pengguna.
     -   [ ] Buat komponen/halaman untuk Registrasi Pengguna.
     -   [ ] Implementasikan logika Logout.
-    -   [ ] Lindungi rute yang memerlukan autentikasi (misalnya, dasbor pengguna, admin).
+    -   [ ] Lindungi rute yang memerlukan autentikasi.
     -   [ ] Tampilkan status login/profil pengguna di header.
 
 ### Frontend (Next.js) - Fitur Pengguna
 -   [ ] **Halaman Utama (`/`)**:
-    -   [ ] Ambil dan tampilkan daftar acara dari tabel `events` Supabase.
+    -   [x] Ambil dan tampilkan daftar acara dari Supabase.
 -   [ ] **Halaman Detail Acara (`/events/[id]`)**:
-    -   [x] Ambil dan tampilkan detail acara spesifik dari tabel `events` Supabase.
+    -   [x] Ambil dan tampilkan detail acara spesifik dari Supabase.
 -   [ ] **Formulir Pemesanan (`BookingForm.tsx`)**:
-    -   [x] Ambil detail kupon dari tabel `coupons` Supabase untuk validasi.
-    -   [x] Panggil Supabase Edge Function `create-booking` saat submit.
-    -   [ ] Tangani respons (sukses/error) dari Edge Function.
-    -   [ ] Dapatkan `user_id` dari sesi Supabase Auth jika pengguna login.
+    -   [x] Ambil detail kupon dari Supabase untuk validasi.
+    -   [ ] Panggil Supabase Edge Function `initiate-payment`.
+    -   [ ] Tangani respons (token/URL Midtrans) dari Edge Function.
+    -   [ ] **Integrasikan Midtrans Snap.js**: Gunakan token untuk membuka popup pembayaran Midtrans.
+    -   [ ] Tangani callback sukses/pending/error/close dari Midtrans Snap.js.
+    -   [ ] Arahkan ke halaman konfirmasi yang sesuai atau tampilkan pesan.
 -   [ ] **Halaman Konfirmasi Pemesanan (`/booking/confirmation/[bookingId]`)**:
-    -   [x] Tampilkan detail berdasarkan data yang diterima/disimpan dari respons Edge Function `create-booking`.
+    -   [x] Tampilkan status berdasarkan parameter URL (mis., `?status=success` atau `?status=pending`).
+    -   [x] Tampilkan pesan yang sesuai (mis., "Pembayaran berhasil, e-tiket dikirim" atau "Menunggu pembayaran").
 -   [ ] **Halaman Tiket Saya (`/my-tickets`)**:
-    -   [ ] Ambil dan tampilkan daftar tiket (dari tabel `bookings`) milik pengguna yang sedang login.
+    -   [x] Ambil dan tampilkan daftar tiket dari `bookings` milik pengguna yang login.
+    -   [ ] Pastikan tombol "Unduh E-Tiket" berfungsi jika `ticket_pdf_url` ada.
 -   [ ] **Halaman Pengaturan Pengguna (`/dashboard/user/settings`)**:
-    -   [ ] Ambil data profil pengguna yang sedang login dari tabel `users` Supabase.
-    -   [ ] Izinkan pengguna memperbarui nama, avatar, dan detail bank (jika afiliasi) ke tabel `users` Supabase.
+    -   [x] Ambil data profil dari `users` Supabase.
+    -   [x] Izinkan update nama, avatar, detail bank ke `users` Supabase.
 
 ### Backend (Supabase Edge Functions)
--   [x] **`create-booking` Edge Function:**
+-   [ ] **`initiate-payment` Edge Function:**
     -   [x] Terima payload dari frontend.
-    -   [x] Validasi ketersediaan tiket dan harga dari tabel `events`.
-    -   [x] Validasi kupon dari tabel `coupons`.
+    -   [x] Validasi ketersediaan tiket & harga dari `events`.
+    -   [x] Validasi kupon dari `coupons`.
     -   [x] Hitung harga akhir.
-    -   [x] Simpan pesanan baru ke tabel `bookings`.
-    -   [x] Update `times_used` di tabel `coupons`.
-    -   [x] Kurangi `available_tickets` di tabel `events`.
-    -   [x] Generate `buyer_referral_code` dan simpan ke `bookings`.
-    -   [x] Kembalikan respons ke frontend.
+    -   [x] Simpan pesanan awal ke `bookings` dengan `payment_status = 'pending'`.
+    -   [ ] **Panggil API Midtrans**: Untuk membuat transaksi dan mendapatkan `token` atau `redirect_url`. (Simpan Midtrans Server Key & Client Key sebagai secrets).
+    -   [x] Kembalikan `token`/`redirect_url` Midtrans ke frontend.
+-   [ ] **`midtrans-webhook` Edge Function:**
+    -   [ ] Buat endpoint untuk menerima notifikasi dari Midtrans.
+    -   [ ] **Implementasikan verifikasi signature Midtrans** (SANGAT PENTING).
+    -   [ ] Proses status transaksi:
+        -   Jika `settlement` (sukses):
+            -   [ ] Update `payment_status = 'paid'` di `bookings`.
+            -   [ ] Update `times_used` di `coupons` (jika dipakai).
+            -   [ ] Update `available_tickets` di `events`.
+            -   [ ] Generate `buyer_referral_code` dan simpan ke `bookings`.
+            -   [ ] **Panggil fungsi untuk generate PDF E-Tiket** (dengan QR code dari `bookingId`).
+            -   [ ] **Simpan PDF ke Supabase Storage** dan update `ticket_pdf_url` di `bookings`.
+            -   [ ] **Panggil fungsi untuk kirim email** dengan lampiran e-tiket.
+            -   [ ] (Fase 2) Jika ada `used_referral_code`, hitung & simpan komisi.
+        -   Handle status `pending`, `failure`, `expire`, `cancel`.
+    -   [ ] Kembalikan HTTP 200 OK ke Midtrans.
+-   [ ] **Logika Pembuatan PDF E-Tiket (dalam `midtrans-webhook` atau fungsi helper):**
+    -   [x] Fungsi untuk mengambil detail pesanan dan acara.
+    -   [x] Fungsi untuk men-generate QR code (dari `bookingId`).
+    -   [x] Fungsi untuk men-generate PDF e-tiket yang berisi detail acara, pemesan, dan QR code.
+-   [ ] **Logika Pengiriman Email (dalam `midtrans-webhook` atau fungsi helper):**
+    -   [x] Integrasi dengan layanan email (Resend, SendGrid, dll. via API HTTP).
+    -   [x] Kirim email dengan lampiran PDF e-tiket.
 
 ### Frontend (Next.js) - Dasbor Admin (Dasar)
--   [ ] **Kelola Acara (`/dashboard/admin/manage-events`)**:
-    -   [x] Ambil dan tampilkan daftar acara dari tabel `events` Supabase.
-    -   [x] Implementasikan fungsi hapus acara dari tabel `events` Supabase.
--   [ ] **Tambah Acara Baru (`/dashboard/admin/manage-events/new`)**:
-    -   [x] Simpan data acara baru ke tabel `events` Supabase.
--   [ ] **Kelola Kupon (`/dashboard/admin/coupons`)**:
-    -   [ ] Ambil dan tampilkan daftar kupon dari tabel `coupons` Supabase.
-    -   [ ] Implementasikan fungsi hapus dan toggle status aktif kupon di tabel `coupons` Supabase.
--   [ ] **Tambah Kupon Baru (`/dashboard/admin/coupons/new`)**:
-    -   [ ] Simpan data kupon baru ke tabel `coupons` Supabase.
--   [ ] **Kelola Pesanan (`/dashboard/admin/orders`)**:
-    -   [ ] Ambil dan tampilkan daftar pesanan dari tabel `bookings` Supabase.
--   [ ] **Pengaturan Admin (`/dashboard/admin/settings`)**:
-    -   [ ] Simpan/muat pengaturan (Meta Pixel, GA, Info Bank Admin) ke/dari tabel `admin_settings` baru di Supabase (atau solusi penyimpanan konfigurasi lain).
+-   [x] **Kelola Acara (`/dashboard/admin/manage-events`)**: CRUD ke Supabase.
+-   [x] **Kelola Kupon (`/dashboard/admin/coupons`)**: CRUD ke Supabase.
+-   [x] **Kelola Pesanan (`/dashboard/admin/orders`)**:
+    -   [x] Ambil dan tampilkan daftar pesanan dari `bookings` Supabase.
+    -   [ ] Tambahkan kolom `ticket_pdf_url` (link jika ada) dan `checked_in`.
+-   [x] **Pengaturan Admin (`/dashboard/admin/settings`)**:
+    -   [ ] Simpan/muat pengaturan ke/dari tabel `admin_settings` (atau solusi lain) di Supabase, bukan localStorage.
+    -   [ ] Tambahkan field untuk Midtrans Server Key, Client Key, Production Mode (untuk diakses oleh Edge Functions).
 
 ---
 
 ## Fase 2: Implementasi Sistem Afiliasi
+(Tugas-tugas dari rencana sebelumnya, pastikan terintegrasi dengan alur pembayaran baru)
 
 ### Database (Supabase)
--   [ ] Buat tabel `commissions` (`id`, `booking_id` (FK), `affiliate_id` (FK ke `users.id`), `amount`, `status` (`pending`, `paid`, `rejected`), `commission_date`, `created_at`).
--   [ ] Buat tabel `withdrawal_requests` (`id`, `affiliate_id` (FK ke `users.id`), `request_date`, `amount`, `status` (`Pending`, `Approved`, `Rejected`, `Completed`), `processed_date`, `admin_notes`, `bank_snapshot` (jsonb), `created_at`).
--   [ ] Terapkan RLS untuk tabel `commissions` dan `withdrawal_requests`.
+-   [ ] Buat tabel `commissions`.
+-   [ ] Buat tabel `withdrawal_requests`.
+-   [ ] RLS untuk tabel baru.
 
 ### Backend (Supabase Edge Functions/DB Functions)
--   [ ] **Peningkatan `create-booking` Edge Function:**
-    -   [ ] Jika `used_referral_code` valid:
-        -   Identifikasi `affiliate_id` pemilik kode referral.
-        -   Hitung jumlah komisi.
-        -   Simpan entri baru ke tabel `commissions` dengan status `pending`.
--   [ ] **`request-withdrawal` Edge Function:**
-    -   [ ] Terima `affiliate_id` (dari pengguna terautentikasi) dan `amount`.
-    -   [ ] Validasi apakah saldo komisi `pending` afiliasi mencukupi.
-    -   [ ] Buat entri baru di `withdrawal_requests` dengan status `Pending`.
-    -   [ ] Ambil detail bank afiliasi saat ini dan simpan di `bank_snapshot` pada `withdrawal_requests`.
--   [ ] **`process-withdrawal` Edge Function (Admin):**
-    -   [ ] Terima `withdrawal_id` dan `action` (`approve`/`reject`).
-    -   [ ] Update status di `withdrawal_requests`.
-    -   [ ] Jika `approve`, update status komisi terkait di tabel `commissions` menjadi `paid`.
-    -   [ ] (Logika transfer bank aktual terjadi di luar sistem).
--   [ ] **`activate-affiliate` Edge Function (Admin):**
-    -   [ ] Terima `user_id`.
-    -   [ ] Generate `affiliate_code` unik jika belum ada.
-    -   [ ] Update kolom `roles` di tabel `users` untuk menambahkan `'affiliate'`.
-    -   [ ] Update kolom `affiliate_code` di tabel `users`.
+-   [ ] **Peningkatan `midtrans-webhook` Edge Function:**
+    -   [ ] Jika pembayaran berhasil & `used_referral_code` valid, identifikasi afiliasi, hitung komisi, simpan ke `commissions`.
+-   [ ] `request-withdrawal` Edge Function.
+-   [ ] `process-withdrawal` Edge Function (Admin).
+-   [ ] `activate-affiliate` Edge Function (Admin).
 
 ### Frontend (Next.js) - Dasbor Afiliasi (`/dashboard/affiliate`)
--   [ ] Ambil dan tampilkan data afiliasi yang sedang login (total komisi, saldo tersedia, dll.) dari tabel `users` dan agregasi dari `commissions`.
--   [ ] Implementasikan fungsionalitas pembuat tautan afiliasi.
--   [ ] Tampilkan daftar penjualan yang direferensikan dari tabel `commissions`.
--   [ ] Tampilkan riwayat penarikan dari tabel `withdrawal_requests`.
--   [ ] Buat formulir untuk mengirim permintaan penarikan (memanggil Edge Function `request-withdrawal`).
+-   [ ] Statistik, pembuat tautan, daftar penjualan, riwayat penarikan, formulir permintaan.
 
 ### Frontend (Next.js) - Dasbor Admin
--   [ ] **Manajemen Afiliasi (`/dashboard/admin/affiliates-management`)**:
-    -   [ ] Tampilkan daftar pengguna yang memiliki peran `'affiliate'`.
-    -   [ ] Tampilkan daftar permintaan penarikan dari `withdrawal_requests`.
-    -   [ ] Implementasikan tombol untuk menyetujui/menolak permintaan (memanggil Edge Function `process-withdrawal`).
-    -   [ ] Tombol untuk mengaktifkan/menonaktifkan status afiliasi pengguna (memanggil Edge Function `activate-affiliate` atau fungsi serupa untuk menonaktifkan).
--   [ ] **Kelola Pengguna (`/dashboard/admin/users`)**:
-    -   [ ] Perbarui agar bisa menampilkan dan mengelola peran afiliasi.
+-   [ ] **Manajemen Afiliasi (`/dashboard/admin/affiliates-management`)**.
+-   [ ] **Kelola Pengguna (`/dashboard/admin/users`)**: Perbarui untuk peran afiliasi.
 
 ---
 
-## Fase 3: Peningkatan Dasbor Admin & Integrasi Pembayaran
-
-### Integrasi Gateway Pembayaran
--   [ ] **Frontend:**
-    -   [ ] Pilih dan integrasikan SDK/UI Kit dari penyedia gateway pembayaran (misalnya, Midtrans, Xendit) ke dalam alur `BookingForm`.
-    -   [ ] Arahkan pengguna ke halaman pembayaran atau tampilkan popup pembayaran.
-    -   [ ] Tangani callback sukses/gagal dari gateway pembayaran di sisi klien.
--   [ ] **Backend (Supabase Edge Function):**
-    -   [ ] Buat Edge Function baru (misalnya, `payment-webhook`) untuk menerima notifikasi dari gateway pembayaran.
-    -   [ ] Verifikasi keaslian webhook.
-    -   [ ] Jika pembayaran berhasil:
-        -   Update `payment_status` di tabel `bookings` menjadi `paid`.
-        -   Picu proses pembuatan e-tiket dan pengiriman email (lihat poin berikutnya).
-
-### Pembuatan E-Tiket & Pengiriman Email
--   [ ] **Backend (Peningkatan `payment-webhook` atau Edge Function baru `generate-send-eticket`):**
-    -   [x] **(Dasar PDF sudah ada di `create-booking`, perlu disempurnakan dan dipicu pasca-bayar)**
-    -   [ ] Fungsi untuk mengambil detail pesanan.
-    -   [x] Fungsi untuk men-generate QR code (dari `booking_id`).
-    -   [x] Fungsi untuk men-generate PDF e-tiket yang berisi detail acara, pemesan, dan QR code.
-    -   [x] Simpan PDF yang di-generate ke Supabase Storage.
-    -   [x] Update kolom `ticket_pdf_url` di tabel `bookings` dengan URL dari Supabase Storage.
-    -   [ ] Implementasikan pengiriman email (menggunakan layanan eksternal seperti Resend/SendGrid) dengan lampiran PDF e-tiket atau tautan unduh.
+## Fase 3: Peningkatan Dasbor Admin & Fitur Validasi Tiket
 
 ### Frontend (Next.js) - Dasbor Admin (Peningkatan)
--   [ ] **Kelola Acara:** Implementasikan fungsionalitas Edit Acara (form edit & update ke Supabase).
--   [ ] **Kelola Kupon:** Implementasikan fungsionalitas Edit Kupon.
--   [ ] **Kelola Pesanan:**
-    -   [ ] Tambahkan filter berdasarkan status pembayaran, acara, dll.
-    -   [ ] Tambahkan fungsionalitas pencarian.
-    -   [ ] Tampilkan link ke e-tiket jika sudah digenerate.
--   [ ] **Kelola Pengguna:**
-    -   [ ] Tambahkan filter berdasarkan peran, status akun.
-    -   [ ] Implementasikan fungsionalitas edit detail pengguna (oleh admin).
-    -   [ ] Implementasikan manajemen peran yang lebih detail.
+-   [ ] Edit Acara, Edit Kupon.
+-   [ ] Filter, pencarian, paginasi untuk tabel Pesanan, Pengguna, Acara, Kupon.
 
-### Frontend (Next.js) - Pengguna
--   [ ] **Halaman "Tiket Saya"**:
-    -   [ ] Pastikan tombol "Unduh E-Tiket" berfungsi dengan benar, mengarah ke `ticket_pdf_url` dari Supabase.
+### Fitur Validasi Tiket
+-   [ ] **Frontend - Halaman Scan Tiket Admin (`/dashboard/admin/scan-ticket`)**:
+    -   [x] UI dasar: area kamera (placeholder), input manual ID tiket, tombol validasi, area hasil.
+    -   [ ] Integrasi pustaka QR scanner untuk menggunakan kamera.
+    -   [ ] Panggil Edge Function `validate-ticket` saat scan/submit manual.
+    -   [ ] Tampilkan hasil validasi.
+    -   [ ] Tombol "Check-in" jika tiket valid dan belum digunakan.
+-   [ ] **Backend - `validate-ticket` Edge Function**:
+    -   [ ] Terima `bookingId`.
+    -   [ ] Query tabel `bookings` berdasarkan `bookingId`.
+    -   [ ] Periksa `payment_status` (harus `paid`).
+    -   [ ] Periksa `checked_in` (harus `false`).
+    -   [ ] Jika valid & belum check-in:
+        -   [ ] Update `checked_in = true`, `checked_in_at = now()`.
+        -   [ ] Kembalikan detail booking dan status "VALID_FOR_CHECK_IN".
+    -   [ ] Jika sudah check-in, kembalikan status "ALREADY_CHECKED_IN" dan detail booking.
+    -   [ ] Jika tidak lunas, kembalikan status "PAYMENT_NOT_CONFIRMED".
+    -   [ ] Jika tidak ditemukan, kembalikan status "INVALID_TICKET".
 
 ---
 
 ## Fase 4: Pengujian, Deployment, dan Iterasi Berkelanjutan
+(Tugas-tugas dari rencana sebelumnya)
+-   [ ] Pengujian unit, integrasi, E2E (terutama alur pembayaran dan validasi tiket).
+-   [ ] Audit Keamanan (RLS, webhook Midtrans, validasi input).
+-   [ ] Deployment (CI/CD, environment variables untuk Midtrans).
+-   [ ] Monitoring & Logging.
 
--   [ ] **Pengujian:**
-    -   [ ] Tulis pengujian unit untuk logika kritis di Edge Functions.
-    -   [ ] Lakukan pengujian integrasi untuk alur utama (pemesanan dengan kupon, pendaftaran afiliasi, permintaan penarikan, konfirmasi pembayaran -> e-tiket).
-    -   [ ] (Opsional) Lakukan pengujian E2E untuk skenario pengguna utama.
--   [ ] **Keamanan:**
-    -   [ ] Review semua RLS policy untuk memastikan tidak ada celah keamanan.
-    -   [ ] Pastikan semua input divalidasi di sisi server (Edge Functions).
-    -   [ ] Pastikan tidak ada API key atau kredensial sensitif yang terekspos di frontend.
--   [ ] **Deployment:**
-    -   [ ] Siapkan environment produksi di Supabase.
-    -   [ ] Konfigurasikan CI/CD pipeline (misalnya, GitHub Actions) untuk mendeploy perubahan frontend ke Vercel/Netlify dan Supabase Functions ke Supabase.
--   [ ] **Monitoring & Logging:**
-    -   [ ] Manfaatkan log Supabase untuk Edge Functions dan database.
-    -   [ ] (Opsional) Integrasikan layanan monitoring error eksternal (misalnya Sentry).
--   [ ] **Iterasi:**
-    -   Kumpulkan feedback dari pengguna (jika ada pengujian beta).
-    -   Rencanakan perbaikan dan fitur tambahan berdasarkan feedback dan prioritas bisnis.

@@ -2,13 +2,12 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation'; // Ditambahkan useSearchParams
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { CheckCircle, ClipboardCopy, Download, Ticket, Percent, Loader2 } from 'lucide-react'; // Ditambahkan Loader2
+import { CheckCircle, ClipboardCopy, Download, Ticket, Percent, Loader2, AlertTriangle, MailCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-// import { MOCK_USERS } from '@/lib/constants'; // Tidak lagi diperlukan untuk referral code generation di sini
 
 interface BookingDetailsStorage {
   bookingId: string;
@@ -21,15 +20,18 @@ interface BookingDetailsStorage {
   selectedTierName?: string;
   selectedTierPrice?: number;
   couponCode?: string; 
-  discountAmount?: number; 
+  discountAmount?: number;
+  paymentStatus?: 'paid' | 'pending' | 'failed'; // Ditambahkan paymentStatus
 }
 
 export default function BookingConfirmationPage() {
   const params = useParams();
+  const searchParams = useSearchParams(); // Untuk mengambil status dari URL
   const { bookingId } = params;
   const [details, setDetails] = useState<BookingDetailsStorage | null>(null);
-  const [loading, setLoading] = useState(true); // State untuk loading
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const paymentStatusFromUrl = searchParams.get('status') as BookingDetailsStorage['paymentStatus'];
 
   useEffect(() => {
     setLoading(true);
@@ -39,60 +41,50 @@ export default function BookingConfirmationPage() {
         try {
           const parsedDetails: BookingDetailsStorage = JSON.parse(storedDetailsString);
           
-          // Pastikan ID pemesanan dari localStorage cocok dengan ID dari URL
           if (parsedDetails.bookingId === bookingId) {
+            // Update payment status from URL if available and different
+            if (paymentStatusFromUrl && paymentStatusFromUrl !== parsedDetails.paymentStatus) {
+                parsedDetails.paymentStatus = paymentStatusFromUrl;
+                localStorage.setItem('bookingDetails', JSON.stringify(parsedDetails)); // Update localStorage
+            }
             setDetails(parsedDetails);
           } else {
-            // Jika tidak cocok, berarti data localStorage mungkin untuk booking lain atau sudah usang
             console.warn("Booking ID mismatch between URL and localStorage.");
-            setDetails({ // Set ke data minimal error
-              bookingId: bookingId as string,
-              eventName: "Detail Pemesanan Tidak Cocok",
-              name: "N/A",
-              email: "N/A",
-              tickets: 0,
-              totalPrice: 0,
-              buyerReferralCode: "N/A"
+            // Set to minimal error data or try fetching from server if implemented
+            setDetails({ 
+              bookingId: bookingId as string, eventName: "Detail Pemesanan Tidak Cocok",
+              name: "N/A", email: "N/A", tickets: 0, totalPrice: 0,
+              paymentStatus: paymentStatusFromUrl || 'pending'
             });
           }
         } catch (e) {
           console.error("Gagal mem-parse bookingDetails dari localStorage:", e);
-           setDetails({ // Set ke data minimal error jika parse gagal
-              bookingId: bookingId as string,
-              eventName: "Kesalahan Data Pemesanan",
-              name: "N/A",
-              email: "N/A",
-              tickets: 0,
-              totalPrice: 0,
-              buyerReferralCode: "N/A"
+           setDetails({
+              bookingId: bookingId as string, eventName: "Kesalahan Data Pemesanan",
+              name: "N/A", email: "N/A", tickets: 0, totalPrice: 0,
+              paymentStatus: paymentStatusFromUrl || 'pending'
             });
         }
       } else {
-        // Jika tidak ada data di localStorage sama sekali
-         setDetails({ // Set ke data minimal error
-            bookingId: bookingId as string,
-            eventName: "Detail Pemesanan Tidak Ditemukan",
-            name: "N/A",
-            email: "N/A",
-            tickets: 0,
-            totalPrice: 0,
-            buyerReferralCode: "N/A"
+         setDetails({
+            bookingId: bookingId as string, eventName: "Detail Pemesanan Tidak Ditemukan",
+            name: "N/A", email: "N/A", tickets: 0, totalPrice: 0,
+            paymentStatus: paymentStatusFromUrl || 'pending'
           });
       }
     }
     setLoading(false);
-  }, [bookingId]);
+  }, [bookingId, paymentStatusFromUrl]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast({ title: `${label} Disalin!`, description: `${text} telah disalin ke clipboard Anda.` });
     }).catch(err => {
       toast({ title: "Penyalinan Gagal", description: `Tidak dapat menyalin ${label}.`, variant: "destructive" });
-      console.error('Gagal menyalin: ', err);
     });
   };
   
-  if (loading || !details) { // Tampilkan loading jika loading true atau details belum ada
+  if (loading || !details) {
     return (
       <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12 text-center">
         <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
@@ -100,27 +92,41 @@ export default function BookingConfirmationPage() {
       </div>
     );
   }
-
-  const paymentInstructions = {
-    bankTransfer: {
-      bank: "Bank BCA",
-      accountNumber: "123-456-7890",
-      accountName: "PT Bproid Event Organizer",
-    },
-    qris: "https://placehold.co/200x200.png?text=QRIS+Placeholder",
-  };
-
+  
   const originalPriceBeforeDiscount = (details.totalPrice || 0) + (details.discountAmount || 0);
+
+  let statusTitle = "Pemesanan Diterima";
+  let statusDescription = `Pemesanan Anda untuk ${details.eventName} telah kami terima.`;
+  let statusIcon = <MailCheck className="h-10 w-10" />;
+  let cardHeaderClass = "bg-blue-600 text-white"; // Default for pending/processing
+
+  if (details.paymentStatus === 'paid') {
+    statusTitle = "Pembayaran Berhasil!";
+    statusDescription = `E-tiket Anda untuk ${details.eventName} akan segera dikirimkan ke email Anda.`;
+    statusIcon = <CheckCircle className="h-10 w-10" />;
+    cardHeaderClass = "bg-green-600 text-white";
+  } else if (details.paymentStatus === 'pending') {
+    statusTitle = "Pembayaran Tertunda";
+    statusDescription = `Selesaikan pembayaran Anda. Instruksi lebih lanjut mungkin telah dikirimkan ke email Anda.`;
+    statusIcon = <Loader2 className="h-10 w-10 animate-spin" />;
+    cardHeaderClass = "bg-yellow-500 text-black";
+  } else if (details.paymentStatus === 'failed') {
+    statusTitle = "Pembayaran Gagal";
+    statusDescription = `Pembayaran untuk pesanan ${details.eventName} gagal. Silakan coba lagi.`;
+    statusIcon = <AlertTriangle className="h-10 w-10" />;
+    cardHeaderClass = "bg-red-600 text-white";
+  }
+
 
   return (
     <div className="container py-12">
       <Card className="mx-auto max-w-2xl shadow-xl">
-        <CardHeader className="bg-primary text-primary-foreground p-6 rounded-t-lg">
+        <CardHeader className={`${cardHeaderClass} p-6 rounded-t-lg`}>
           <div className="flex items-center gap-3">
-            <CheckCircle className="h-10 w-10" />
+            {statusIcon}
             <div>
-              <CardTitle className="text-3xl font-bold">Pemesanan Dikonfirmasi!</CardTitle>
-              <CardDescription className="text-primary-foreground/80">Tiket Anda untuk {details.eventName} telah dipesan.</CardDescription>
+              <CardTitle className="text-3xl font-bold">{statusTitle}</CardTitle>
+              <CardDescription className={`${details.paymentStatus === 'pending' ? 'text-black/80' : 'text-white/80'}`}>{statusDescription}</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -143,11 +149,11 @@ export default function BookingConfirmationPage() {
                   </li>
                 </>
               )}
-              <li className="font-semibold text-foreground"><strong>Total Bayar:</strong> Rp {details.totalPrice.toLocaleString()}</li>
+              <li className="font-semibold text-foreground"><strong>Total Tagihan:</strong> Rp {details.totalPrice.toLocaleString()}</li>
             </ul>
           </div>
 
-          {details.buyerReferralCode && details.buyerReferralCode !== "N/A" && (
+          {details.paymentStatus === 'paid' && details.buyerReferralCode && details.buyerReferralCode !== "N/A" && (
              <div>
               <h3 className="text-lg font-semibold mb-1">Kode Referral Anda:</h3>
               <div className="flex items-center gap-2">
@@ -165,38 +171,32 @@ export default function BookingConfirmationPage() {
               <p className="text-xs text-muted-foreground mt-1">Bagikan kode ini dengan teman! Anda akan mendapatkan komisi jika mereka memesan menggunakan kode Anda.</p>
             </div>
           )}
+          
+          {details.paymentStatus === 'pending' && (
+             <div className="space-y-4 rounded-md border bg-yellow-50 border-yellow-300 p-4">
+                <h3 className="text-lg font-semibold text-yellow-700">Menunggu Pembayaran</h3>
+                <p className="text-sm text-yellow-600">Harap selesaikan pembayaran Anda melalui Midtrans. Anda akan menerima email konfirmasi dan e-tiket setelah pembayaran berhasil diverifikasi.</p>
+                <p className="text-xs text-yellow-500">Jika Anda sudah membayar, mohon tunggu beberapa saat hingga sistem kami memperbarui statusnya.</p>
+            </div>
+          )}
 
-          <div className="space-y-4 rounded-md border bg-secondary/30 p-4">
-            <h3 className="text-lg font-semibold text-primary">Instruksi Pembayaran</h3>
-            <p className="text-sm text-muted-foreground">Harap selesaikan pembayaran Anda dalam 24 jam untuk mengamankan tiket Anda. Jumlah yang harus dibayar: <strong>Rp {details.totalPrice.toLocaleString()}</strong></p>
-            
-            <div>
-              <h4 className="font-semibold mb-1">Transfer Bank:</h4>
-              <p className="text-sm">Bank: {paymentInstructions.bankTransfer.bank}</p>
-              <div className="flex items-center gap-2">
-                <p className="text-sm">Nomor Rekening: {paymentInstructions.bankTransfer.accountNumber}</p>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(paymentInstructions.bankTransfer.accountNumber, "Nomor Rekening")}>
-                  <ClipboardCopy className="h-3 w-3" />
+          {details.paymentStatus === 'failed' && (
+             <div className="space-y-4 rounded-md border bg-red-50 border-red-300 p-4">
+                <h3 className="text-lg font-semibold text-red-700">Pembayaran Gagal</h3>
+                <p className="text-sm text-red-600">Sayangnya, pembayaran Anda tidak berhasil diproses. Anda dapat mencoba melakukan pemesanan lagi.</p>
+                <Button asChild variant="destructive" className="mt-2">
+                    <Link href={`/events/${params.eventId || ''}`}>Coba Pesan Lagi</Link>
                 </Button>
-              </div>
-              <p className="text-sm">Atas Nama: {paymentInstructions.bankTransfer.accountName}</p>
             </div>
+          )}
 
-            <div>
-              <h4 className="font-semibold mb-1">QRIS:</h4>
-              <p className="text-sm mb-2">Pindai kode QR di bawah menggunakan e-wallet atau aplikasi mobile banking Anda.</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={paymentInstructions.qris} alt="Kode Pembayaran QRIS" className="rounded-md border" data-ai-hint="QR code"/>
-            </div>
-            <p className="text-xs text-muted-foreground">Setelah pembayaran, harap kirim bukti transfer ke payments@bproid.com beserta ID Pemesanan Anda. <strong>E-tiket akan dikirimkan ke email Anda setelah pembayaran diverifikasi.</strong></p>
-          </div>
         </CardContent>
         <CardFooter className="p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <Button
+           <Button
             variant="outline"
             onClick={() => toast({
-              title: "E-Tiket Akan Dikirim",
-              description: "E-tiket Anda akan dikirimkan ke alamat email terdaftar setelah pembayaran berhasil diverifikasi oleh tim kami.",
+              title: "Informasi E-Tiket",
+              description: "E-tiket Anda akan dikirimkan ke alamat email terdaftar setelah pembayaran berhasil diverifikasi oleh sistem kami dan diproses oleh Midtrans.",
             })}
           >
             <Download className="mr-2 h-4 w-4" /> Informasi E-Tiket

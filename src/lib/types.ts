@@ -25,21 +25,29 @@ export interface Booking {
   userEmail: string;
   tickets: number;
   totalPrice: number; // This will be the final price after discount
-  bookingDate: string;
-  paymentStatus: 'pending' | 'paid' | 'failed';
-  couponCode?: string; // Replaces referralCode
-  discountAmount?: number; // Amount discounted by coupon
+  bookingDate: string; // ISO string date of booking creation
+  paymentStatus: 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
+  couponCode?: string;
+  discountAmount?: number;
   selectedTierName?: string;
   selectedTierPrice?: number;
-  usedReferralCode?: string; // For tracking which affiliate's code was used by buyer
-  ticket_pdf_url?: string; // URL ke PDF tiket yang digenerate
+  usedReferralCode?: string;
+  buyerReferralCode?: string;
+  ticket_pdf_url?: string;
+  midtrans_token?: string; // Token from Midtrans to be used by Snap.js
+  midtrans_redirect_url?: string; // Alternative redirect URL from Midtrans
+  midtrans_order_id?: string; // Usually same as booking id, for Midtrans reference
+  checked_in: boolean; // Default to false
+  checked_in_at?: string; // ISO string date when ticket was checked in
+  created_at?: string; // Supabase default
+  updated_at?: string; // Supabase default
 }
 
 export interface Affiliate {
   id: string;
   name: string;
   email: string;
-  referralCode: string; // This is the affiliate's own code to share
+  referralCode: string;
   totalEarnings: number;
   withdrawalHistory: { date: string; amount: number; status: string }[];
   referredSales: { bookingId: string; eventName: string; commission: number; date: string }[];
@@ -56,12 +64,12 @@ export interface AdminCommissionData {
 }
 
 export interface AdminWithdrawalRequest {
-  id: string; // Withdrawal ID
+  id: string;
   affiliateId: string;
   affiliateName: string;
-  date: string; // ISO string date
+  date: string;
   amount: number;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed'; // Admin-centric statuses
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
 }
 
 export interface Coupon {
@@ -69,11 +77,11 @@ export interface Coupon {
   code: string;
   discountType: 'percentage' | 'fixed';
   discountValue: number;
-  expiryDate: string; // ISO string date
+  expiryDate: string;
   isActive: boolean;
-  usageLimit?: number; // Optional: total number of times this coupon can be used
-  timesUsed: number; // How many times this coupon has been used
-  minPurchase?: number; // Optional: minimum purchase amount to use this coupon
+  usageLimit?: number;
+  timesUsed: number;
+  minPurchase?: number;
   description?: string;
 }
 
@@ -92,11 +100,10 @@ export interface User {
   avatarUrl?: string;
   roles: UserRole[];
   accountStatus: 'Aktif' | 'Ditangguhkan' | 'Tidak Aktif';
-  joinDate: string; // ISO string date
-  lastLogin?: string; // ISO string date or 'N/A'
+  joinDate: string;
+  lastLogin?: string;
   totalPurchases: number;
   ticketsPurchased: number;
-  affiliateCode?: string; // If user is an affiliate
-  bankDetails?: UserBankDetails; // Added for affiliate payment
+  affiliateCode?: string;
+  bankDetails?: UserBankDetails;
 }
-
