@@ -20,14 +20,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle, Mail, KeyRound, Banknote, Save, Loader2, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useTransition } from "react";
-import type { User, UserBankDetails } from "@/lib/types";
-import { MOCK_USERS } from "@/lib/constants"; // Assuming MOCK_USERS contains the base data
+import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
+import type { User as AuthUser } from "@supabase/supabase-js"; // For Supabase auth user
+import type { User, UserBankDetails } from "@/lib/types"; // For public.users profile type
 
-const LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX = 'bproid_user_settings_';
-
-// Mock current user ID (replace with actual auth logic later)
-// For simplicity, let's use the first user from MOCK_USERS or "Admin Webmaster"
-const MOCK_CURRENT_USER_ID = MOCK_USERS.find(u => u.email === "zanuradigital@gmail.com")?.id || MOCK_USERS[0]?.id || "usr_000";
+// const LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX = 'bproid_user_settings_'; // No longer using localStorage for primary data
 
 const profileFormSchema = z.object({
   name: z.string().min(2, { message: "Nama minimal 2 karakter." }),
@@ -70,36 +67,62 @@ export default function UserSettingsPage() {
   const [isBankPending, startBankTransition] = useTransition();
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && MOCK_CURRENT_USER_ID) {
-      const userSettingsKey = `${LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX}${MOCK_CURRENT_USER_ID}`;
-      const storedUserSettingsString = localStorage.getItem(userSettingsKey);
-      let userData: User | undefined;
+    const fetchUserData = async () => {
+      setLoadingData(true);
+      const { data: { user: supabaseAuthUser }, error: authError } = await supabase.auth.getUser();
 
-      if (storedUserSettingsString) {
-        try {
-          userData = JSON.parse(storedUserSettingsString);
-        } catch (e) {
-          console.error("Gagal mem-parse pengaturan pengguna dari localStorage:", e);
+      if (authError || !supabaseAuthUser) {
+        console.error("Error fetching auth user or no user logged in:", authError);
+        toast({ title: "Autentikasi Gagal", description: "Silakan login kembali.", variant: "destructive" });
+        // router.push('/login'); // Middleware should handle this
+        setLoadingData(false);
+        return;
+      }
+      setAuthUser(supabaseAuthUser);
+
+      // Fetch profile from public.users table
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', supabaseAuthUser.id)
+        .single();
+
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        // If profile doesn't exist yet (e.g., handle_new_user trigger might be async or failed)
+        // We can use auth user's email and provide default values.
+        const profileDataFromAuth: User = {
+          id: supabaseAuthUser.id,
+          email: supabaseAuthUser.email || "",
+          name: supabaseAuthUser.user_metadata?.full_name || supabaseAuthUser.email?.split('@')[0] || "Pengguna Baru",
+          avatarUrl: supabaseAuthUser.user_metadata?.avatar_url || "",
+          roles: supabaseAuthUser.user_metadata?.roles || ['customer'], // Default role
+          accountStatus: 'Aktif', // Default status
+          joinDate: supabaseAuthUser.created_at || new Date().toISOString(),
+          totalPurchases: 0,
+          ticketsPurchased: 0,
+          // bankDetails will be undefined initially
+        };
+        setCurrentUser(profileDataFromAuth);
+        profileForm.reset({ name: profileDataFromAuth.name, avatarUrl: profileDataFromAuth.avatarUrl || "" });
+        // bankAccountForm will be empty
+      } else if (userProfile) {
+        setCurrentUser(userProfile as User);
+        profileForm.reset({ name: userProfile.name, avatarUrl: userProfile.avatar_url || "" });
+        if (userProfile.bank_details) {
+          bankAccountForm.reset(userProfile.bank_details as UserBankDetails);
         }
       }
-      
-      if (!userData) {
-          userData = MOCK_USERS.find(u => u.id === MOCK_CURRENT_USER_ID);
-      }
-      
-      if (userData) {
-        setCurrentUser(userData);
-        profileForm.reset({ name: userData.name, avatarUrl: userData.avatarUrl || "" });
-        // emailForm doesn't need reset for current email, as it's displayed
-        if (userData.bankDetails) {
-          bankAccountForm.reset(userData.bankDetails);
-        }
-      }
-    }
+      setLoadingData(false);
+    };
+
+    fetchUserData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [MOCK_CURRENT_USER_ID]);
+  }, []);
 
 
   const profileForm = useForm<ProfileFormValues>({
@@ -122,52 +145,87 @@ export default function UserSettingsPage() {
     defaultValues: { bankName: "", accountNumber: "", accountHolderName: "" },
   });
 
-  const handleSave = (data: Partial<User>) => {
-    if (!currentUser) return;
-    const updatedUser = { ...currentUser, ...data };
-    if (data.bankDetails) { // merge bank details properly
-        updatedUser.bankDetails = {...currentUser.bankDetails, ...data.bankDetails};
-    }
-    
-    setCurrentUser(updatedUser); // Update local state for immediate UI feedback
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`${LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX}${MOCK_CURRENT_USER_ID}`, JSON.stringify(updatedUser));
-    }
-  };
+  // Removed handleSave as updates go directly to Supabase
 
-  function onProfileSubmit(values: ProfileFormValues) {
-    startProfileTransition(() => {
-      handleSave({ name: values.name, avatarUrl: values.avatarUrl });
-      toast({ title: "Profil Diperbarui", description: "Informasi profil Anda telah disimpan (secara lokal)." });
+  async function onProfileSubmit(values: ProfileFormValues) {
+    if (!authUser) return;
+    startProfileTransition(async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ 
+          name: values.name, 
+          avatar_url: values.avatarUrl || null // Send null if empty to clear it
+        })
+        .eq('id', authUser.id)
+        .select()
+        .single();
+
+      if (error) {
+        toast({ title: "Update Profil Gagal", description: error.message, variant: "destructive" });
+      } else if (data) {
+        setCurrentUser(data as User); // Update local state with returned data
+        toast({ title: "Profil Diperbarui", description: "Informasi profil Anda telah disimpan." });
+      }
     });
   }
 
-  function onEmailSubmit(values: EmailFormValues) {
-    startEmailTransition(() => {
-      // In a real app, this would trigger a verification process
-      handleSave({ email: values.newEmail });
-      toast({ title: "Permintaan Perubahan Email Terkirim", description: `Email Anda akan diubah ke ${values.newEmail} setelah verifikasi (simulasi).` });
-      emailForm.reset();
+  async function onEmailSubmit(values: EmailFormValues) {
+    if (!authUser) return;
+    startEmailTransition(async () => {
+      // Supabase Auth email change requires user to confirm via email.
+      // updateUser can also update user_metadata if needed.
+      const { error } = await supabase.auth.updateUser({ email: values.newEmail });
+
+      if (error) {
+        toast({ title: "Perubahan Email Gagal", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Konfirmasi Email Terkirim", description: `Silakan cek email Anda (${values.newEmail}) untuk mengkonfirmasi perubahan.` });
+        emailForm.reset();
+      }
     });
   }
 
-  function onPasswordSubmit(values: PasswordFormValues) {
-    startPasswordTransition(() => {
-      // In a real app, validate currentPassword against backend
-      console.log("Kata sandi baru (mock):", values.newPassword);
-      toast({ title: "Kata Sandi Diperbarui", description: "Kata sandi Anda telah berhasil diubah (simulasi)." });
-      passwordForm.reset();
+  async function onPasswordSubmit(values: PasswordFormValues) {
+    if (!authUser) return;
+    startPasswordTransition(async () => {
+      // Supabase Auth password change.
+      // In a real app, you might want to verify currentPassword first via a custom function
+      // if your RLS doesn't allow users to read their own auth.users table directly.
+      // For simplicity, we're directly trying to update.
+      // Note: supabase.auth.updateUser({ password }) only works if user is logged in.
+      const { error } = await supabase.auth.updateUser({ password: values.newPassword });
+      
+      if (error) {
+        // Common error: "Password should be at least 6 characters."
+        // Or if current password verification is needed and not implemented server-side: "Invalid current password"
+        toast({ title: "Perubahan Kata Sandi Gagal", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Kata Sandi Diperbarui", description: "Kata sandi Anda telah berhasil diubah." });
+        passwordForm.reset();
+      }
     });
   }
   
-  function onBankSubmit(values: BankAccountFormValues) {
-    startBankTransition(() => {
-      handleSave({ bankDetails: values });
-      toast({ title: "Informasi Rekening Disimpan", description: "Detail rekening bank Anda telah disimpan (secara lokal)." });
+  async function onBankSubmit(values: BankAccountFormValues) {
+    if (!authUser) return;
+    startBankTransition(async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ bank_details: values })
+        .eq('id', authUser.id)
+        .select()
+        .single();
+      
+      if (error) {
+        toast({ title: "Update Rekening Bank Gagal", description: error.message, variant: "destructive" });
+      } else if (data) {
+        setCurrentUser(data as User); // Update local state
+        toast({ title: "Informasi Rekening Disimpan", description: "Detail rekening bank Anda telah disimpan." });
+      }
     });
   }
 
-  if (!currentUser) {
+  if (loadingData || !currentUser) { // Check loadingData state
     return (
       <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12">
         <Loader2 className="mr-2 h-8 w-8 animate-spin" /> Memuat data pengguna...
@@ -202,7 +260,8 @@ export default function UserSettingsPage() {
         <CardContent className="p-6">
           <div className="flex items-center space-x-4 mb-6">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={profileForm.watch("avatarUrl") || currentUser.avatarUrl || `https://placehold.co/80x80.png?text=${currentUser.name.charAt(0)}`} alt={currentUser.name} data-ai-hint="user avatar"/>
+              {/* Use currentUser.avatarUrl directly for display, form field is for input */}
+              <AvatarImage src={currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=random`} alt={currentUser.name} data-ai-hint="user avatar"/>
               <AvatarFallback>{currentUser.name.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="text-sm text-muted-foreground">Ganti foto profil Anda dengan memasukkan URL gambar baru di bawah ini.</div>

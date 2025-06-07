@@ -1,0 +1,81 @@
+-- This migration file documents the Supabase CLI commands and policies
+-- for setting up the 'bproid-tickets' storage bucket.
+-- These commands should be run manually using the Supabase CLI.
+
+-- 1. Create the 'bproid-tickets' bucket.
+-- It's created as private initially; policies will grant specific access.
+-- Supabase CLI command:
+-- supabase storage buckets create bproid-tickets --public false
+
+-- 2. Set up bucket policies.
+--
+-- Policy 1: Allow public read access to all objects in 'bproid-tickets'.
+-- This allows users to download their e-tickets via a public URL.
+-- To be applied via Supabase Dashboard or CLI.
+-- The policy below is illustrative of what to set up.
+-- In Supabase Dashboard -> Storage -> Policies -> bproid-tickets -> "New Policy" -> "Get started quickly" -> "Enable read access to everyone"
+-- Or using CLI (this is a conceptual representation, actual CLI might differ for policies):
+--
+-- For public read access, if the bucket is marked as "public" during creation or update,
+-- then files are accessible via their public URL.
+-- If keeping the bucket private and using signed URLs or specific RLS-like policies for storage:
+--
+-- Policy Name: "Public Read Access for Tickets"
+-- Operations: SELECT
+-- Target roles: anon, authenticated
+-- Resource: bproid-tickets/*
+-- (Using Supabase Dashboard is often easier for this)
+
+-- Policy 2: Allow service_role full access to 'bproid-tickets'.
+-- This allows backend functions (like midtrans-webhook) using the service_role key
+-- to upload, read, update, and delete ticket PDFs.
+-- This is typically a default for service_role, but good to be explicit if customizing.
+--
+-- Policy Name: "Service Role Full Access for Tickets"
+-- Operations: SELECT, INSERT, UPDATE, DELETE
+-- Target roles: service_role
+-- Resource: bproid-tickets/*
+-- (Using Supabase Dashboard is often easier for this)
+
+-- After creating the bucket, you would typically set policies.
+-- For a simple public read on objects, you can make the bucket public:
+-- supabase storage buckets update bproid-tickets --public true
+--
+-- If you need more granular control (e.g., only authenticated users can read, or only specific users for specific files),
+-- you would keep the bucket private and use Storage RLS policies (similar to database RLS).
+--
+-- For this project, `ticket_pdf_url` implies public accessibility of the PDF once the URL is known.
+-- So, making the objects publicly readable is appropriate.
+-- The `midtrans-webhook` (using service_role) will upload.
+
+-- Recommended approach:
+-- 1. Create bucket as private:
+--    supabase storage buckets create bproid-tickets
+--
+-- 2. Add policy for public read access to objects (via Supabase Dashboard UI):
+--    - Go to Storage -> Policies.
+--    - Select 'bproid-tickets' bucket.
+--    - Click "New policy".
+--    - Choose "Create a new policy from scratch".
+--    - Policy name: "Public read access for ticket PDFs"
+--    - Allowed operations: `select`
+--    - Target roles: `anon`, `authenticated`
+--    - Policy definition (USING expression): `true` (or leave blank for universal select)
+--
+-- 3. Add policy for service_role to upload/manage objects (via Supabase Dashboard UI):
+--    - Policy name: "Service role to manage ticket PDFs"
+--    - Allowed operations: `select`, `insert`, `update`, `delete`
+--    - Target roles: `service_role`
+--    - Policy definition (USING expression): `true` (or leave blank for universal access for this role)
+
+-- The simplest way if direct public URLs are fine for tickets:
+-- supabase storage buckets update bproid-tickets --public true
+-- This makes all objects in the bucket publicly readable by default if they have a public URL.
+-- The `service_role` will still be able to upload/delete.
+
+-- For Bproid.com, since e-tickets are sent to users and should be accessible,
+-- making the bucket objects publicly readable is a common approach.
+-- The `midtrans-webhook` will use the `service_role` key to upload the PDFs.
+
+-- Final check: Ensure the bucket `bproid-tickets` exists and appropriate policies are set
+-- to allow public reads of PDF files and service_role writes.

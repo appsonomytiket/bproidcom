@@ -1,0 +1,23 @@
+{
+  "importMap": "../_shared/import_map.json",
+  "tasks": {
+    "start": "deno run --allow-all --watch index.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"],
+    "noImplicitAny": false
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-explicit-any"]
+    }
+  },
+  "fmt": {
+    "options": {
+      "useTabs": false,
+      "lineWidth": 120,
+      "indentWidth": 2,
+      "singleQuote": true
+    }
+  }
+}

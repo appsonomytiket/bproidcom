@@ -67,15 +67,10 @@ export default function ManageEventsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-  const handleEditEvent = (id: string) => {
-    console.log("Edit Acara:", id);
-    toast({
-      title: "Fungsi Belum Tersedia",
-      description: `Fungsionalitas Edit Acara ${id} belum diimplementasikan. Ini akan memerlukan formulir edit dan update ke Supabase.`,
-    });
-    // router.push(`/dashboard/admin/manage-events/edit/${id}`); // Future route
-  };
+  // handleEditEvent function is no longer needed if using Link component directly
+  // const handleEditEvent = (id: string) => {
+  //   // router.push(`/dashboard/admin/manage-events/${id}/edit`);
+  // };
 
   const handleDeleteEvent = async (id: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus acara ini (ID: ${id})? Tindakan ini akan menghapusnya dari database.`)) {
@@ -188,9 +183,11 @@ export default function ManageEventsPage() {
                             <span className="sr-only">Lihat Halaman Publik</span>
                           </Link>
                         </Button>
-                        <Button variant="outline" size="icon" onClick={() => handleEditEvent(event.id)} title="Edit Acara">
-                          <Edit3 className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
+                        <Button variant="outline" size="icon" asChild title="Edit Acara">
+                          <Link href={`/dashboard/admin/manage-events/${event.id}/edit`}>
+                            <Edit3 className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Link>
                         </Button>
                         <Button variant="destructive" size="icon" onClick={() => handleDeleteEvent(event.id)} title="Hapus Acara">
                           <Trash2 className="h-4 w-4" />

@@ -19,7 +19,7 @@ interface AdminRecentBookingsTableProps {
 export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableProps) {
   const { toast } = useToast();
 
-  const getPaymentStatusText = (status: 'pending' | 'paid' | 'failed') => {
+  const getPaymentStatusText = (status: Booking['paymentStatus']) => {
     switch (status) {
       case 'paid':
         return 'Lunas';
@@ -62,6 +62,7 @@ export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableP
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-center">Tiket PDF</TableHead>
+              <TableHead className="text-center">Checked In</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -79,15 +80,34 @@ export function AdminRecentBookingsTable({ bookings }: AdminRecentBookingsTableP
                 </TableCell>
                 <TableCell className="text-right">Rp {booking.totalPrice.toLocaleString()}</TableCell>
                 <TableCell className="text-center">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handlePrintTicket(booking.id, booking.ticket_pdf_url)}
-                    title="Cetak/Unduh Tiket"
-                  >
-                    <Printer className="h-4 w-4" />
-                    <span className="sr-only">Cetak Tiket</span>
-                  </Button>
+                  {booking.paymentStatus === 'paid' && booking.ticket_pdf_url ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      asChild
+                      title="Unduh Tiket PDF"
+                    >
+                      <Link href={booking.ticket_pdf_url} target="_blank" rel="noopener noreferrer">
+                        <Printer className="h-4 w-4" />
+                        <span className="sr-only">Unduh Tiket</span>
+                      </Link>
+                    </Button>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell className="text-center">
+                  {booking.paymentStatus === 'paid' ? (
+                    booking.checked_in ? (
+                      <Badge className="bg-green-500 hover:bg-green-600 text-white">
+                        Ya ({booking.checked_in_at ? format(new Date(booking.checked_in_at), "dd/MM/yy HH:mm", { locale: idLocale }) : 'N/A'})
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Tidak</Badge>
+                    )
+                  ) : (
+                    <Badge variant="secondary">-</Badge>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

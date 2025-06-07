@@ -1,203 +1,254 @@
+'use client';
 
-// src/app/dashboard/admin/affiliates-management/page.tsx
-"use client";
+import { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { toast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
-import * as React from 'react'; // Ditambahkan impor React
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MOCK_TOP_AFFILIATES_ADMIN, MOCK_ADMIN_WITHDRAWAL_REQUESTS } from "@/lib/constants";
-import type { AdminWithdrawalRequest, Affiliate } from "@/lib/types";
-import { Share2, Users, DollarSign, CheckCircle, XCircle, AlertCircle, Hourglass, MoreHorizontal } from "lucide-react";
-import { format } from "date-fns";
-import { id as idLocale } from "date-fns/locale";
+// Types - consider moving to src/lib/types.ts if not already there
+interface ManagedUser {
+  id: string;
+  email?: string;
+  full_name?: string;
+  referral_code?: string | null;
+  created_at: string;
+}
 
-// Simulate fetching data
-async function getAffiliateManagementData(): Promise<{ affiliates: Pick<Affiliate, 'id' | 'name' | 'referralCode' | 'totalEarnings' | 'email'>[], withdrawals: AdminWithdrawalRequest[] }> {
-  return {
-    affiliates: MOCK_TOP_AFFILIATES_ADMIN,
-    withdrawals: MOCK_ADMIN_WITHDRAWAL_REQUESTS,
-  };
+interface AdminWithdrawalRequest {
+  id: string;
+  affiliate_user_id: string;
+  affiliate_email?: string; // Joined data
+  affiliate_name?: string; // Joined data
+  requested_amount: number;
+  status: string;
+  requested_at: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_account_holder_name?: string;
 }
 
 export default function AffiliatesManagementPage() {
-  // In a real app, you would fetch data in a useEffect or use a server component approach
-  const [affiliates, setAffiliates] = React.useState<Pick<Affiliate, 'id' | 'name' | 'referralCode' | 'totalEarnings' | 'email'>[]>([]);
-  const [withdrawals, setWithdrawals] = React.useState<AdminWithdrawalRequest[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<AdminWithdrawalRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<AdminWithdrawalRequest | null>(null);
+  const [adminNotes, setAdminNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  React.useEffect(() => {
-    getAffiliateManagementData().then(data => {
-      setAffiliates(data.affiliates);
-      setWithdrawals(data.withdrawals);
-      setLoading(false);
-    });
+  useEffect(() => {
+    fetchAdminAffiliateData();
   }, []);
 
-  const getWithdrawalStatusText = (status: AdminWithdrawalRequest['status']) => {
-    switch (status) {
-      case 'Pending': return 'Tertunda';
-      case 'Approved': return 'Disetujui';
-      case 'Rejected': return 'Ditolak';
-      case 'Completed': return 'Selesai';
-      default: return status;
+  const fetchAdminAffiliateData = async () => {
+    setLoading(true);
+    try {
+      // Fetch all users with their affiliate status (referral_code)
+      const { data: usersData, error: usersError } = await supabase
+        .from('users') // Assuming public.users table
+        .select('id, email, full_name, referral_code, created_at')
+        .order('created_at', { ascending: false });
+      if (usersError) throw usersError;
+      setUsers(usersData || []);
+
+      // Fetch pending withdrawal requests and join with user details for display
+      const { data: withdrawalsData, error: withdrawalsError } = await supabase
+        .from('withdrawal_requests')
+        .select(`
+          id,
+          requested_amount,
+          status,
+          requested_at,
+          bank_name,
+          bank_account_number,
+          bank_account_holder_name,
+          affiliate_user_id,
+          users ( email, full_name )
+        `)
+        .eq('status', 'pending') // Only show pending ones for action
+        .order('requested_at', { ascending: true });
+        
+      if (withdrawalsError) throw withdrawalsError;
+      
+      const formattedWithdrawals = withdrawalsData?.map((w: any) => ({
+        ...w,
+        affiliate_email: w.users?.email,
+        affiliate_name: w.users?.full_name,
+      })) || [];
+      setWithdrawalRequests(formattedWithdrawals);
+
+    } catch (error: any) {
+      console.error('Error fetching admin affiliate data:', error);
+      toast({ title: 'Error', description: error.message || 'Could not fetch data.' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getWithdrawalStatusVariant = (status: AdminWithdrawalRequest['status']): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Pending': return 'secondary';
-      case 'Approved': return 'default'; // Assuming default is green-ish or primary
-      case 'Rejected': return 'destructive';
-      case 'Completed': return 'outline'; // Or another variant like success if available
-      default: return 'outline';
+  const handleActivateAffiliate = async (userId: string) => {
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase.functions.invoke('activate-affiliate', {
+        body: { user_id_to_activate: userId },
+      });
+      if (error) throw error;
+      toast({ title: 'Success', description: 'Affiliate activated/status confirmed.' });
+      fetchAdminAffiliateData(); // Refresh users list
+    } catch (error: any) {
+      console.error('Error activating affiliate:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to activate affiliate.' });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-   const getWithdrawalStatusIcon = (status: AdminWithdrawalRequest['status']) => {
-    switch (status) {
-      case 'Pending': return <Hourglass className="mr-2 h-4 w-4" />;
-      case 'Approved': return <CheckCircle className="mr-2 h-4 w-4 text-green-500" />;
-      case 'Rejected': return <XCircle className="mr-2 h-4 w-4 text-red-500" />;
-      case 'Completed': return <CheckCircle className="mr-2 h-4 w-4 text-blue-500" />; // Or a different check color
-      default: return <AlertCircle className="mr-2 h-4 w-4" />;
+  const handleProcessWithdrawal = async (action: 'approve' | 'reject') => {
+    if (!selectedWithdrawal) return;
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase.functions.invoke('process-withdrawal', {
+        body: {
+          withdrawal_request_id: selectedWithdrawal.id,
+          action: action,
+          admin_notes: adminNotes,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Success', description: `Withdrawal request ${action}d.` });
+      setSelectedWithdrawal(null);
+      setAdminNotes('');
+      fetchAdminAffiliateData(); // Refresh withdrawals list
+    } catch (error: any) {
+      console.error(`Error processing withdrawal (${action}):`, error);
+      toast({ title: 'Error', description: error.message || `Failed to ${action} withdrawal.` });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
 
   if (loading) {
-    return (
-      <div className="container py-12">
-        <p>Memuat data manajemen afiliasi...</p>
-      </div>
-    );
+    return <div className="container mx-auto p-4">Loading affiliate management data...</div>;
   }
 
   return (
-    <div className="container py-12 space-y-8">
-      <Card className="shadow-xl">
-        <CardHeader className="bg-primary text-primary-foreground p-6 rounded-t-lg">
-          <div className="flex items-center gap-3">
-            <Share2 className="h-10 w-10" />
-            <div>
-              <CardTitle className="text-3xl font-bold">Manajemen Afiliasi</CardTitle>
-              <CardDescription className="text-primary-foreground/80">
-                Kelola akun afiliasi, komisi, dan performa mereka.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0"> {/* Remove padding to make table flush */}
-          {/* Placeholder for overall stats or actions */}
-        </CardContent>
-      </Card>
+    <div className="container mx-auto p-4 space-y-8">
+      <h1 className="text-3xl font-bold">Affiliates Management</h1>
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center text-xl"><Users className="mr-2 h-6 w-6 text-accent" />Daftar Afiliasi</CardTitle>
-              <CardDescription>Afiliasi yang terdaftar di platform.</CardDescription>
-            </div>
-            <Button variant="outline" size="sm"><Users className="mr-2 h-4 w-4" /> Tambah Afiliasi Baru</Button>
-          </div>
+          <CardTitle>User Affiliate Status</CardTitle>
+          <CardDescription>Manage user affiliate activations.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nama</TableHead>
+                <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Kode Referral</TableHead>
-                <TableHead className="text-right">Total Penghasilan</TableHead>
-                <TableHead className="text-center">Aksi</TableHead>
+                <TableHead>Referral Code</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {affiliates.length > 0 ? affiliates.map((affiliate) => (
-                <TableRow key={affiliate.id}>
-                  <TableCell className="font-medium">{affiliate.name}</TableCell>
-                  <TableCell>{affiliate.email}</TableCell>
-                  <TableCell>{affiliate.referralCode}</TableCell>
-                  <TableCell className="text-right">Rp {affiliate.totalEarnings.toLocaleString()}</TableCell>
-                  <TableCell className="text-center">
-                    <Button variant="ghost" size="icon" onClick={() => alert(`Kelola ${affiliate.name}`)}>
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Kelola Afiliasi</span>
-                    </Button>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.full_name || 'N/A'}</TableCell>
+                  <TableCell>{user.email || 'N/A'}</TableCell>
+                  <TableCell>{user.referral_code || 'Not Active'}</TableCell>
+                  <TableCell>
+                    {!user.referral_code && (
+                      <Button onClick={() => handleActivateAffiliate(user.id)} size="sm" disabled={isProcessing}>
+                        {isProcessing ? 'Activating...' : 'Activate'}
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
-              )) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4">Belum ada afiliasi terdaftar.</TableCell>
-                </TableRow>
-              )}
+              ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center text-xl"><DollarSign className="mr-2 h-6 w-6 text-accent" />Permintaan Penarikan</CardTitle>
-              <CardDescription>Permintaan penarikan komisi dari afiliasi.</CardDescription>
-            </div>
-            {/* Maybe a filter here later */}
-          </div>
+          <CardTitle>Pending Withdrawal Requests</CardTitle>
+          <CardDescription>Approve or reject pending withdrawal requests.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID Penarikan</TableHead>
-                <TableHead>Nama Afiliasi</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-center">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {withdrawals.length > 0 ? withdrawals.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell className="font-medium">{req.id}</TableCell>
-                  <TableCell>{req.affiliateName}</TableCell>
-                  <TableCell>{format(new Date(req.date), "PPpp", { locale: idLocale })}</TableCell>
-                  <TableCell className="text-right">Rp {req.amount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={getWithdrawalStatusVariant(req.status)} className="flex items-center w-fit">
-                      {getWithdrawalStatusIcon(req.status)}
-                      {getWithdrawalStatusText(req.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button variant="ghost" size="icon" onClick={() => alert(`Proses permintaan ${req.id}`)}>
-                      <MoreHorizontal className="h-4 w-4" />
-                       <span className="sr-only">Proses Permintaan</span>
-                    </Button>
-                    {/* Add Approve/Reject buttons if status is Pending */}
-                    {/* Example:
-                    {req.status === 'Pending' && (
-                      <div className="flex gap-1 justify-center">
-                        <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">Setujui</Button>
-                        <Button size="sm" variant="outline" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">Tolak</Button>
-                      </div>
-                    )}
-                    */}
-                  </TableCell>
+          {withdrawalRequests.length === 0 ? (<p>No pending withdrawal requests.</p>) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Affiliate</TableHead>
+                  <TableHead>Amount (IDR)</TableHead>
+                  <TableHead>Bank</TableHead>
+                  <TableHead>Requested At</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              )) : (
-                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4">Tidak ada permintaan penarikan.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {withdrawalRequests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>{req.affiliate_name || req.affiliate_email || req.affiliate_user_id}</TableCell>
+                    <TableCell>{req.requested_amount.toLocaleString('id-ID')}</TableCell>
+                    <TableCell>{req.bank_name} - {req.bank_account_number} ({req.bank_account_holder_name})</TableCell>
+                    <TableCell>{new Date(req.requested_at).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <DialogTrigger asChild>
+                        <Button onClick={() => setSelectedWithdrawal(req)} size="sm" disabled={isProcessing}>
+                          Process
+                        </Button>
+                      </DialogTrigger>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      {selectedWithdrawal && (
+        <Dialog open={!!selectedWithdrawal} onOpenChange={(isOpen) => !isOpen && setSelectedWithdrawal(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Process Withdrawal for {selectedWithdrawal.affiliate_name || selectedWithdrawal.affiliate_email}</DialogTitle>
+              <DialogDescription>
+                Amount: Rp {selectedWithdrawal.requested_amount.toLocaleString('id-ID')}<br/>
+                Bank: {selectedWithdrawal.bank_name} - {selectedWithdrawal.bank_account_number} ({selectedWithdrawal.bank_account_holder_name})<br/>
+                Requested: {new Date(selectedWithdrawal.requested_at).toLocaleString()}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="adminNotes">Admin Notes (Optional)</Label>
+              <Textarea 
+                id="adminNotes" 
+                value={adminNotes} 
+                onChange={(e) => setAdminNotes(e.target.value)} 
+                placeholder="e.g., Payment processed via Xoom." 
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedWithdrawal(null)} disabled={isProcessing}>Cancel</Button>
+              <Button variant="destructive" onClick={() => handleProcessWithdrawal('reject')} disabled={isProcessing}>
+                {isProcessing ? 'Rejecting...' : 'Reject'}
+              </Button>
+              <Button onClick={() => handleProcessWithdrawal('approve')} disabled={isProcessing}>
+                {isProcessing ? 'Approving...' : 'Approve'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -1,4 +1,31 @@
 {
-    "IDX.aI.enableInlineCompletion": true,
-    "IDX.aI.enableCodebaseIndexing": true
+  // Explicitly enable Deno and specify paths where it should be active.
+  "deno.enable": true,
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+
+  // Point to the shared import map for all Deno-enabled paths.
+  // The path should be relative to the workspace root.
+  "deno.importMap": "./supabase/functions/_shared/import_map.json",
+
+  // Let the Deno extension discover deno.json within each directory in enablePaths.
+  // "deno.config" is removed from here to avoid overriding this discovery.
+
+  // Ensure Deno is the default formatter for TypeScript files within Deno-enabled paths.
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno",
+    "editor.formatOnSave": true // Optional: if you want auto-formatting
+  },
+  "[typescriptreact]": { // For .tsx files if any in Deno context
+    "editor.defaultFormatter": "denoland.vscode-deno",
+    "editor.formatOnSave": true // Optional
+  }
+
+  // If you have other workspace settings (e.g., for ESLint, Prettier for your Next.js part),
+  // they should be merged here. Ensure the overall JSON structure remains valid.
+  // Example:
+  // "eslint.workingDirectories": [
+  //   { "mode": "auto" }
+  // ]
 }

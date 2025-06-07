@@ -1,267 +1,241 @@
+'use client';
 
-"use client";
+import { useState, useEffect, useRef } from 'react';
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { createBrowserClient } from '@supabase/ssr';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/lib/supabaseClient";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
-import type { Booking } from "@/lib/types";
-import { QrCode, Search, TicketCheck, UserCircle, CalendarDays, CheckCircle, XCircle, AlertCircle, Loader2, Video } from "lucide-react";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+interface BookingDetails {
+  id: string;
+  payment_status: string;
+  checked_in: boolean;
+  checked_in_at?: string | null;
+  event_id: string;
+  user_id: string;
+  user_name?: string;
+  event_name?: string;
+  selected_tier_name?: string;
+  tickets: number;
+}
 
-// Idealnya, gunakan pustaka QR scanner seperti react-qr-reader atau html5-qrcode-scanner
-// Untuk sekarang, ini hanya placeholder UI
+interface ValidationResponse {
+  status: 'success' | 'not_found' | 'not_paid' | 'already_checked_in' | 'update_failed' | 'error';
+  message: string;
+  booking_details: BookingDetails | null;
+}
 
 export default function ScanTicketPage() {
-  const { toast } = useToast();
-  const [ticketIdInput, setTicketIdInput] = useState("");
-  const [scannedData, setScannedData] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<Booking | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const [bookingId, setBookingId] = useState('');
+  const [validationResult, setValidationResult] = useState<ValidationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [isScannerActive, setIsScannerActive] = useState(false);
-
-  // Placeholder untuk logika QR Scanner
-  const startScanner = useCallback(async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play(); // Mulai video stream
-        }
-        setIsScannerActive(true);
-        toast({ title: "Kamera Aktif", description: "Arahkan QR code tiket ke kamera." });
-        // Di sini Anda akan mengintegrasikan pustaka QR scanner untuk memproses stream dari videoRef.current
-        // Contoh: html5QrCode.start(videoRef.current, config, qrCodeSuccessCallback, qrCodeErrorCallback);
-        // Untuk demo, kita akan simulasikan scan setelah beberapa detik:
-        setTimeout(() => {
-            if (isScannerActive) { // Cek apakah scanner masih aktif
-                // setScannedData(`dummy-booking-id-${Date.now()}`);
-                // setTicketIdInput(`dummy-booking-id-${Date.now()}`);
-                // handleValidateTicket(`dummy-booking-id-${Date.now()}`);
-                console.log("QR Scanner simulation: Ready to scan.");
-            }
-        }, 5000);
-
-      } catch (err) {
-        console.error("Error accessing camera:", err);
-        setHasCameraPermission(false);
-        toast({ variant: "destructive", title: "Kamera Error", description: "Tidak dapat mengakses kamera. Pastikan izin telah diberikan." });
-        setIsScannerActive(false);
-      }
-    } else {
-      setHasCameraPermission(false);
-      toast({ variant: "destructive", title: "Kamera Tidak Didukung", description: "Browser Anda tidak mendukung akses kamera." });
-    }
-  }, [isScannerActive, toast]); // Tambahkan isScannerActive ke dependency
-
-  const stopScanner = useCallback(() => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    setIsScannerActive(false);
-    // toast({ title: "Kamera Dinonaktifkan" });
-  }, []);
-
-  useEffect(() => {
-    // Cleanup: Hentikan scanner jika komponen unmount atau isScannerActive menjadi false
-    return () => {
-      if (isScannerActive) {
-        stopScanner();
-      }
-    };
-  }, [isScannerActive, stopScanner]);
-
+  const [showScanner, setShowScanner] = useState(false);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRegionId = "qr-scanner-region";
 
   const handleValidateTicket = async (idToValidate?: string) => {
-    const finalTicketId = idToValidate || ticketIdInput;
-    if (!finalTicketId.trim()) {
-      toast({ variant: "destructive", title: "Input Kosong", description: "Masukkan ID Tiket atau scan QR Code." });
+    const currentBookingId = idToValidate || bookingId;
+    if (!currentBookingId.trim()) {
+      toast({ title: 'Error', description: 'Please enter or scan a Booking ID.' });
       return;
     }
-
     setIsLoading(true);
-    setValidationError(null);
     setValidationResult(null);
-
     try {
-      // Di dunia nyata, ini akan memanggil Supabase Edge Function
-      // const { data, error } = await supabase.functions.invoke('validate-ticket', { body: { bookingId: finalTicketId } });
-      
-      // Simulasi panggilan ke Supabase
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('id', finalTicketId)
-        .single();
+      const { data, error } = await supabase.functions.invoke('validate-ticket', {
+        body: { booking_id: currentBookingId.trim() },
+      });
 
-      if (error || !data) {
-        throw new Error(error?.message || "Tiket tidak ditemukan.");
+      if (error) {
+        throw new Error(error.message || 'Failed to call validation function.');
       }
       
-      const bookingData = data as Booking;
+      const result = data as ValidationResponse;
+      setValidationResult(result);
+      // Also update the input field if a QR code was scanned
+      if (idToValidate) {
+        setBookingId(idToValidate);
+      }
 
-      if (bookingData.payment_status !== 'paid') {
-        setValidationError(`Tiket belum lunas (Status: ${bookingData.payment_status}).`);
-        setValidationResult(bookingData); // Tetap tampilkan info tiketnya
-      } else if (bookingData.checked_in) {
-        setValidationError(`Tiket ini sudah digunakan (Check-in pada: ${bookingData.checked_in_at ? new Date(bookingData.checked_in_at).toLocaleString('id-ID') : 'N/A'}).`);
-        setValidationResult(bookingData);
+      if (result.status === 'success') {
+        toast({ title: 'Success', description: result.message });
+        if (showScanner && scannerRef.current) {
+          // Consider stopping the scanner or providing feedback to scan next
+        }
       } else {
-        setValidationResult(bookingData);
-        toast({ title: "Tiket Valid!", description: `Tiket untuk ${bookingData.userName} siap untuk check-in.` });
+        toast({ title: 'Validation Info', description: result.message, variant: result.status === 'already_checked_in' || result.status === 'not_paid' ? 'default' : 'destructive' });
       }
-      stopScanner(); // Hentikan scanner setelah validasi berhasil atau gagal
-    } catch (err: any) {
-      setValidationError(err.message || "Gagal memvalidasi tiket.");
-      toast({ variant: "destructive", title: "Validasi Gagal", description: err.message });
-      stopScanner();
+
+    } catch (error: any) {
+      console.error('Error validating ticket:', error);
+      setValidationResult({
+        status: 'error',
+        message: error.message || 'An unexpected error occurred.',
+        booking_details: null,
+      });
+      toast({ title: 'Error', description: error.message || 'Failed to validate ticket.' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCheckInTicket = async () => {
-    if (!validationResult || validationResult.checked_in || validationResult.payment_status !== 'paid') {
-      toast({ variant: "destructive", title: "Tidak Dapat Check-in", description: "Tiket tidak valid untuk check-in." });
-      return;
-    }
+  useEffect(() => {
+    if (showScanner) {
+      if (!scannerRef.current) {
+        const formatsToSupport = [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.EAN_13,
+        ];
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+          scannerRegionId,
+          { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            supportedScanTypes: [], 
+            formatsToSupport: formatsToSupport
+          },
+          /* verbose= */ false
+        );
 
-    setIsCheckingIn(true);
-    try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ checked_in: true, checked_in_at: new Date().toISOString() })
-        .eq('id', validationResult.id);
+        const onScanSuccess = (decodedText: string, decodedResult: any) => {
+          console.log(`Scan result: ${decodedText}`, decodedResult);
+          setBookingId(decodedText); 
+          handleValidateTicket(decodedText);
+          // setShowScanner(false); // Optional: hide scanner after successful scan
+        };
 
-      if (error) {
-        throw error;
+        const onScanFailure = (error: any) => {
+          // console.warn(`QR error = ${error}`);
+        };
+
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = html5QrcodeScanner;
       }
-
-      setValidationResult({ ...validationResult, checked_in: true, checked_in_at: new Date().toISOString() });
-      toast({ title: "Check-in Berhasil!", description: `Tiket ${validationResult.id} telah berhasil di check-in.` });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Gagal Check-in", description: err.message });
-    } finally {
-      setIsCheckingIn(false);
+    } else {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(error => {
+          console.error("Failed to clear html5QrcodeScanner: ", error);
+        });
+        scannerRef.current = null;
+      }
     }
-  };
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(error => {
+          console.error("Cleanup: Failed to clear html5QrcodeScanner: ", error);
+        });
+        scannerRef.current = null;
+      }
+    };
+  }, [showScanner]);
 
+  const handleManualValidate = () => {
+    handleValidateTicket(); // This will use the bookingId from the state
+  }
+
+  const getAlertVariant = (status?: ValidationResponse['status']): "default" | "destructive" | null | undefined => {
+    if (!status) return "default";
+    switch (status) {
+      case 'success':
+        return "default"; // Or a custom "success" variant if you have one
+      case 'already_checked_in':
+      case 'not_paid':
+        return "default"; // Informational, but not a "success"
+      case 'not_found':
+      case 'update_failed':
+      case 'error':
+        return "destructive";
+      default:
+        return "default";
+    }
+  }
 
   return (
-    <div className="container py-12 space-y-8">
-      <Card className="shadow-xl">
-        <CardHeader className="bg-primary text-primary-foreground p-6 rounded-t-lg">
-          <div className="flex items-center gap-3">
-            <QrCode className="h-10 w-10" />
-            <div>
-              <CardTitle className="text-3xl font-bold">Validasi Tiket</CardTitle>
-              <CardDescription className="text-primary-foreground/80">
-                Scan QR Code tiket atau masukkan ID Tiket untuk validasi.
-              </CardDescription>
-            </div>
-          </div>
+    <div className="container mx-auto p-4 space-y-8">
+      <h1 className="text-3xl font-bold">Scan & Validate Ticket</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Validate Ticket</CardTitle>
+          <CardDescription>
+            Input the Booking ID manually or use the QR code scanner.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="p-6 space-y-6">
-          
-          {/* Camera Scanner Section */}
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Scan QR Code Tiket</h3>
-             {!isScannerActive ? (
-                <Button onClick={startScanner} variant="outline" className="w-full md:w-auto">
-                    <Video className="mr-2 h-4 w-4" /> Aktifkan Kamera Scanner
-                </Button>
-            ) : (
-                 <Button onClick={stopScanner} variant="destructive" className="w-full md:w-auto">
-                    <Video className="mr-2 h-4 w-4" /> Nonaktifkan Kamera
-                </Button>
-            )}
-
-            {hasCameraPermission === false && (
-                <Alert variant="destructive" className="mt-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Akses Kamera Ditolak</AlertTitle>
-                    <AlertDescription>
-                        Silakan berikan izin akses kamera di pengaturan browser Anda untuk menggunakan fitur scan QR.
-                    </AlertDescription>
-                </Alert>
-            )}
-            {isScannerActive && (
-              <div className="mt-2 border bg-muted rounded-md overflow-hidden aspect-video max-w-md mx-auto">
-                <video ref={videoRef} className="w-full h-full object-cover" playsInline />
-              </div>
-            )}
-            {scannedData && <p className="text-sm text-muted-foreground">Data dari QR: {scannedData}</p>}
-          </div>
-
-          <Separator />
-
-          {/* Manual Input Section */}
-          <div className="space-y-2">
-            <Label htmlFor="ticketId" className="text-lg font-semibold">Masukkan ID Tiket Manual</Label>
-            <div className="flex items-center gap-2">
+            <Label htmlFor="bookingIdInput">Booking ID</Label>
+            <div className="flex items-end space-x-2">
               <Input
-                id="ticketId"
-                placeholder="Contoh: bk_xxxxxxx atau hasil scan QR"
-                value={ticketIdInput}
-                onChange={(e) => setTicketIdInput(e.target.value)}
-                disabled={isLoading}
+                id="bookingIdInput"
+                type="text"
+                value={bookingId}
+                onChange={(e) => setBookingId(e.target.value)}
+                placeholder="Enter or scan Booking ID"
+                disabled={showScanner} // Disable manual input when scanner is active
               />
-              <Button onClick={() => handleValidateTicket()} disabled={isLoading || !ticketIdInput.trim()}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Validasi
+              <Button onClick={handleManualValidate} disabled={isLoading || showScanner}>
+                {isLoading && !showScanner ? 'Validating...' : 'Validate Manually'}
               </Button>
             </div>
           </div>
 
-          {/* Validation Result Section */}
-          {validationResult && (
-            <Card className={`mt-4 ${validationResult.checked_in || validationError ? 'border-yellow-400 bg-yellow-50' : 'border-green-400 bg-green-50'}`}>
-              <CardHeader>
-                <CardTitle className={`flex items-center ${validationResult.checked_in || validationError ? 'text-yellow-700' : 'text-green-700'}`}>
-                  {validationResult.checked_in ? <AlertCircle className="mr-2 h-6 w-6"/> : validationError && validationResult.payment_status !== 'paid' ? <XCircle className="mr-2 h-6 w-6"/> : <CheckCircle className="mr-2 h-6 w-6" />}
-                  Status Tiket: {validationResult.checked_in ? "Sudah Digunakan" : validationError && validationResult.payment_status !== 'paid' ? "Belum Lunas" : validationError ? "Sudah Digunakan (Lainnya)" : "VALID"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p><UserCircle className="inline mr-1 h-4 w-4" /><strong>Nama Pembeli:</strong> {validationResult.userName}</p>
-                <p><TicketCheck className="inline mr-1 h-4 w-4" /><strong>Acara:</strong> {validationResult.eventName}</p>
-                <p><CalendarDays className="inline mr-1 h-4 w-4" /><strong>Tanggal Pesan:</strong> {new Date(validationResult.bookingDate).toLocaleString('id-ID')}</p>
-                <p><strong>ID Pesanan:</strong> {validationResult.id}</p>
-                <p><strong>Status Pembayaran:</strong> <span className={`font-semibold ${validationResult.payment_status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>{validationResult.payment_status.toUpperCase()}</span></p>
-                {validationError && <p className="text-red-600 font-semibold">{validationError}</p>}
-                
-                {!validationResult.checked_in && validationResult.payment_status === 'paid' && !validationError && (
-                  <Button onClick={handleCheckInTicket} disabled={isCheckingIn} className="mt-4 w-full bg-green-600 hover:bg-green-700">
-                    {isCheckingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                    Konfirmasi Check-in Tiket Ini
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+          <div>
+            <Button
+              variant="outline"
+              onClick={() => setShowScanner(prev => !prev)}
+              disabled={isLoading}
+            >
+              {showScanner ? (isLoading ? 'Scanner Active...' : 'Hide Scanner') : 'Scan QR Code'}
+            </Button>
+          </div>
+
+          {showScanner && (
+            <div id={scannerRegionId} className="w-full md:w-[500px] mx-auto my-4 border rounded-md aspect-square">
+              {/* QR Code Scanner will be rendered here by html5-qrcode */}
+            </div>
           )}
-           {validationError && !validationResult && ( // Error tanpa hasil validasi (mis. tiket tidak ditemukan sama sekali)
-             <Alert variant="destructive" className="mt-4">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error Validasi</AlertTitle>
-                <AlertDescription>{validationError}</AlertDescription>
-            </Alert>
-           )}
         </CardContent>
       </Card>
+
+      {validationResult && (
+        <Alert variant={getAlertVariant(validationResult.status)}>
+          <AlertTitle>
+            {validationResult.status === 'success' && "Ticket Validated & Checked In!"}
+            {validationResult.status === 'already_checked_in' && "Ticket Already Checked In"}
+            {validationResult.status === 'not_paid' && "Ticket Not Paid"}
+            {validationResult.status === 'not_found' && "Ticket Not Found"}
+            {validationResult.status === 'update_failed' && "Check-in Failed"}
+            {validationResult.status === 'error' && "Error"}
+          </AlertTitle>
+          <AlertDescription>
+            {validationResult.message}
+            {validationResult.booking_details && (
+              <div className="mt-2 text-sm space-y-1 p-2 border rounded bg-muted/50">
+                <p><strong>Booking ID:</strong> {validationResult.booking_details.id}</p>
+                <p><strong>Event:</strong> {validationResult.booking_details.event_name || 'N/A'}</p>
+                <p><strong>Name:</strong> {validationResult.booking_details.user_name || 'N/A'}</p>
+                <p><strong>Tier:</strong> {validationResult.booking_details.selected_tier_name || 'N/A'} ({validationResult.booking_details.tickets} ticket(s))</p>
+                <p><strong>Payment Status:</strong> {validationResult.booking_details.payment_status}</p>
+                <p><strong>Checked In:</strong> {validationResult.booking_details.checked_in ? 'Yes' : 'No'}</p>
+                {validationResult.booking_details.checked_in_at && (
+                  <p><strong>Checked In At:</strong> {new Date(validationResult.booking_details.checked_in_at).toLocaleString()}</p>
+                )}
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
-

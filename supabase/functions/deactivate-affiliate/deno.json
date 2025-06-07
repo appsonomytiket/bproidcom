@@ -1,0 +1,21 @@
+{
+  "importMap": "../_shared/import_map.json",
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"],
+    "noImplicitAny": false,
+    "allowImportingTsExtensions": true
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-explicit-any"]
+    }
+  },
+  "fmt": {
+    "options": {
+      "useTabs": false,
+      "lineWidth": 120,
+      "indentWidth": 2,
+      "singleQuote": true
+    }
+  }
+}

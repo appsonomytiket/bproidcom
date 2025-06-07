@@ -1,3 +1,4 @@
+/// <reference types="https://deno.land/x/deno/cli/types/dts/index.d.ts" />
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -131,27 +132,39 @@ async function sendTicketEmail(to: string, subject: string, htmlBody: string, pd
   }
 }
 
-// Helper for Midtrans signature verification (conceptual)
+// Helper for Midtrans signature verification
 async function verifyMidtransSignature(notificationPayload: any, serverKey: string): Promise<boolean> {
-  // This is a simplified conceptual verification.
-  // Midtrans provides specific guidance on how to verify signatures, often involving
-  // concatenating order_id, status_code, gross_amount, and your server_key, then hashing (SHA512).
-  // const { order_id, status_code, gross_amount, signature_key } = notificationPayload;
-  // const stringToHash = `${order_id}${status_code}${gross_amount}${serverKey}`;
-  //
-  // const encoder = new TextEncoder();
-  // const data = encoder.encode(stringToHash);
-  // const hashBuffer = await crypto.subtle.digest('SHA-512', data);
-  // const hashArray = Array.from(new Uint8Array(hashBuffer));
-  // const calculatedSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  //
-  // return calculatedSignature === signature_key;
-  console.warn("Midtrans signature verification is conceptual. Implement actual verification logic.");
-  return true; // Placeholder - ALWAYS IMPLEMENT PROPER VERIFICATION
+  const { order_id, status_code, gross_amount, signature_key } = notificationPayload;
+
+  if (!order_id || !status_code || !gross_amount || !signature_key) {
+    console.error("Missing fields for signature verification in Midtrans payload.");
+    return false;
+  }
+
+  const stringToHash = `${order_id}${status_code}${gross_amount}${serverKey}`;
+  
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(stringToHash);
+    const hashBuffer = await crypto.subtle.digest('SHA-512', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const calculatedSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    if (calculatedSignature === signature_key) {
+      console.log("Midtrans signature verified successfully.");
+      return true;
+    } else {
+      console.warn("Midtrans signature verification failed. Calculated vs Received:", calculatedSignature, signature_key);
+      return false;
+    }
+  } catch (error) {
+    console.error("Error during Midtrans signature verification:", error);
+    return false;
+  }
 }
 
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 405,
@@ -174,11 +187,13 @@ Deno.serve(async (req) => {
     }
 
     // **SECURITY CRITICAL**: Verify the notification authenticity
-    // const isSignatureValid = await verifyMidtransSignature(notificationPayload, MIDTRANS_SERVER_KEY);
-    // if (!isSignatureValid) {
-    //   console.error("Invalid Midtrans signature.");
-    //   return new Response(JSON.stringify({ error: 'Invalid signature.' }), { status: 403 });
-    // }
+    const isSignatureValid = await verifyMidtransSignature(notificationPayload, MIDTRANS_SERVER_KEY);
+    if (!isSignatureValid) {
+      console.error("Invalid Midtrans signature. Webhook processing aborted.");
+      return new Response(JSON.stringify({ error: 'Invalid signature.' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 
+      });
+    }
 
     const order_id = notificationPayload.order_id;
     const transaction_status = notificationPayload.transaction_status;
@@ -211,7 +226,7 @@ Deno.serve(async (req) => {
     // Fetch the booking to get all necessary details
     const { data: booking, error: bookingFetchError } = await supabaseAdmin
       .from('bookings')
-      .select('*')
+      .select('*, user_id, event_id, total_price, coupon_id, tickets, user_name, user_email, event_name, used_referral_code, buyer_referral_code, ticket_pdf_url, payment_status') // Ensure all needed fields are selected
       .eq('id', order_id) // Assuming Midtrans order_id is our booking.id
       .single();
 
@@ -276,7 +291,7 @@ Deno.serve(async (req) => {
               .getPublicUrl(pdfFileName);
             
             if (publicUrlData && publicUrlData.publicUrl) {
-              booking.ticket_pdf_url = publicUrlData.publicUrl;
+              booking.ticket_pdf_url = publicUrlData.publicUrl; // Update booking object in memory
               await supabaseAdmin.from('bookings').update({ ticket_pdf_url: booking.ticket_pdf_url }).eq('id', booking.id);
 
               // Send email with PDF
@@ -305,7 +320,46 @@ Deno.serve(async (req) => {
           .eq('id', booking.event_id);
       if (eventTicketUpdateError) console.error('Webhook: Event ticket update error:', eventTicketUpdateError);
       
-      // TODO: Handle affiliate commission logic here
+      // Affiliate commission logic
+      if (booking.used_referral_code) {
+        console.log(`Processing referral code: ${booking.used_referral_code} for booking ${booking.id}`);
+        const { data: affiliateUser, error: affiliateUserError } = await supabaseAdmin
+          .from('users')
+          .select('id, referral_code') // Select id and referral_code
+          .eq('referral_code', booking.used_referral_code)
+          .single();
+
+        if (affiliateUserError) {
+          console.error(`Error fetching affiliate user for code ${booking.used_referral_code}:`, affiliateUserError);
+        } else if (affiliateUser) {
+          // Ensure affiliate is not the buyer themselves
+          if (affiliateUser.id === booking.user_id) {
+            console.log(`Referral skipped: Affiliate ${affiliateUser.id} is the buyer for booking ${booking.id}.`);
+          } else {
+            // TODO: Make commission rate configurable (e.g., from admin_settings table)
+            const COMMISSION_RATE = 0.10; // 10%
+            const commissionAmount = booking.total_price * COMMISSION_RATE;
+
+            const { error: commissionInsertError } = await supabaseAdmin
+              .from('commissions')
+              .insert({
+                booking_id: booking.id,
+                affiliate_user_id: affiliateUser.id,
+                buyer_user_id: booking.user_id, // The user who made the purchase
+                amount: commissionAmount,
+                status: 'pending', // Default status
+              });
+
+            if (commissionInsertError) {
+              console.error(`Error inserting commission for booking ${booking.id}, affiliate ${affiliateUser.id}:`, commissionInsertError);
+            } else {
+              console.log(`Commission of ${commissionAmount} recorded for affiliate ${affiliateUser.id} from booking ${booking.id}.`);
+            }
+          }
+        } else {
+          console.log(`No affiliate user found for referral code: ${booking.used_referral_code}`);
+        }
+      }
     }
 
     return new Response(JSON.stringify({ message: 'Webhook received and processed successfully.' }), {

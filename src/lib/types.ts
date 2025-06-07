@@ -41,6 +41,9 @@ export interface Booking {
   checked_in_at?: string; // ISO string date when ticket was checked in
   created_at?: string; // Supabase default
   updated_at?: string; // Supabase default
+  
+  // For joined data, e.g., from 'my-tickets' page
+  events?: Partial<Event>; // Or a more specific type for the joined event fields
 }
 
 export interface Affiliate {
@@ -75,7 +78,7 @@ export interface AdminWithdrawalRequest {
 export interface Coupon {
   id: string;
   code: string;
-  discountType: 'percentage' | 'fixed';
+  discountType: 'percentage' | 'fixed_amount'; // Matched to DB/function
   discountValue: number;
   expiryDate: string;
   isActive: boolean;

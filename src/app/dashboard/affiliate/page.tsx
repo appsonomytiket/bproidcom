@@ -1,338 +1,297 @@
+'use client';
 
-"use client";
+import { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from '@/hooks/use-toast';
+import { User } from '@supabase/supabase-js';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { MOCK_AFFILIATE_DATA, MOCK_EVENTS } from "@/lib/constants";
-import type { Affiliate, Event } from "@/lib/types";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  DollarSign, Users, Gift, UserCircle, Link as LinkIcon, 
-  TrendingUp, Wallet, ExternalLink, ShoppingCart, Search, ClipboardCopy 
-} from "lucide-react"; // LogOut icon removed as the button is removed
-import { Separator } from "@/components/ui/separator";
-import { CopyButton } from "@/components/dashboard/CopyButton";
-import { useToast } from "@/hooks/use-toast";
-
-// Simulate fetching affiliate data - in a real app, this would be dynamic
-async function getAffiliateDataClient(): Promise<Affiliate> {
-  // For client component, we can directly use the mock or fetch if needed
-  return MOCK_AFFILIATE_DATA;
+// Define types for affiliate data - consider moving to src/lib/types.ts
+interface AffiliateStats {
+  totalReferrals: number;
+  totalCommissionsEarned: number;
+  availableBalance: number;
+  referralCode: string | null;
 }
 
-// Simulate fetching events - in a real app, this would be dynamic
-async function getEventsClient(): Promise<Event[]> {
-  return MOCK_EVENTS;
+interface Commission {
+  id: string;
+  booking_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  withdrawal_request_id?: string | null; // Added for checking if part of a withdrawal
+  // Add event_name or buyer_name if needed by joining tables in Supabase query
+}
+
+interface Withdrawal {
+  id: string;
+  requested_amount: number;
+  status: string;
+  requested_at: string;
+  processed_at?: string;
+  admin_notes?: string;
 }
 
 export default function AffiliateDashboardPage() {
-  const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
-  const [allEvents, setAllEvents] = useState<Event[]>([]);
-  const [eventPathInput, setEventPathInput] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [generatedLink, setGeneratedLink] = useState<string>('');
-  const { toast } = useToast();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const [user, setUser] = useState<User | null>(null);
+  const [stats, setStats] = useState<AffiliateStats | null>(null);
+  const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [bankDetails, setBankDetails] = useState({ name: '', accountNumber: '', accountHolderName: '' });
 
   useEffect(() => {
-    getAffiliateDataClient().then(data => setAffiliate(data));
-    getEventsClient().then(data => setAllEvents(data));
-  }, []);
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUser(session.user);
+        fetchAffiliateData(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    };
+    getUser();
+  }, [supabase]);
 
-  const filteredEvents = useMemo(() => {
-    if (!searchTerm) return allEvents.slice(0, 5); // Show initial few events or all if fewer
-    return allEvents.filter(event => 
-      event.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 10); // Limit search results
-  }, [searchTerm, allEvents]);
+  const fetchAffiliateData = async (userId: string) => {
+    setLoading(true);
+    try {
+      // Fetch user's referral code from public.users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('referral_code, full_name') // Assuming full_name exists for referral code generation if needed
+        .eq('id', userId)
+        .single();
 
-  const handleEventSelect = (event: Event) => {
-    setEventPathInput(`/events/${event.id}`);
+      if (userError) throw userError;
+      
+      let currentReferralCode = userData?.referral_code;
+
+      // If user doesn't have a referral code, try to generate one (or prompt admin activation)
+      // For now, we assume they get one automatically or admin activates them.
+      // A button "Become an Affiliate" could call an edge function to generate it.
+      if (!currentReferralCode && userData?.full_name) {
+        // This is a client-side placeholder. Actual code generation should be via Edge Function.
+        // console.log("User has no referral code. Admin should activate or a function should create it.");
+        // For demo, we can show a message or a button to request activation.
+      }
+
+
+      // Fetch commissions
+      const { data: commissionsData, error: commissionsError } = await supabase
+        .from('commissions')
+        .select('*')
+        .eq('affiliate_user_id', userId)
+        .order('created_at', { ascending: false });
+      if (commissionsError) throw commissionsError;
+      setCommissions(commissionsData || []);
+
+      // Fetch withdrawals
+      const { data: withdrawalsData, error: withdrawalsError } = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('affiliate_user_id', userId)
+        .order('requested_at', { ascending: false });
+      if (withdrawalsError) throw withdrawalsError;
+      setWithdrawals(withdrawalsData || []);
+
+      // Calculate stats
+      const totalEarned = commissionsData?.reduce((sum: number, c: Commission) => c.status === 'paid' ? sum + c.amount : sum, 0) || 0;
+      const pendingCommissions = commissionsData?.filter((c: Commission) => c.status === 'pending' && !c.withdrawal_request_id) || [];
+      const available = pendingCommissions.reduce((sum: number, c: Commission) => sum + c.amount, 0);
+      
+      setStats({
+        totalReferrals: commissionsData?.length || 0, // Simplistic: counts commission entries
+        totalCommissionsEarned: totalEarned,
+        availableBalance: available,
+        referralCode: currentReferralCode,
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching affiliate data:', error);
+      toast({ title: 'Error', description: error.message || 'Could not fetch affiliate data.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGenerateLink = () => {
-    if (!affiliate) {
-      toast({ title: "Kesalahan", description: "Data afiliasi tidak ditemukan.", variant: "destructive" });
+  const handleRequestWithdrawal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !stats) return;
+    const amount = parseFloat(withdrawalAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: 'Error', description: 'Please enter a valid withdrawal amount.' });
       return;
     }
-    if (!eventPathInput.trim()) {
-      toast({ title: "Input Kosong", description: "Silakan masukkan URL atau pilih acara.", variant: "destructive" });
+    // TODO: Add minimum withdrawal amount check from admin settings
+    if (amount > stats.availableBalance) {
+      toast({ title: 'Error', description: 'Requested amount exceeds available balance.' });
       return;
     }
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    // Ensure eventPathInput starts with a slash if it's a path
-    const path = eventPathInput.startsWith('/') ? eventPathInput : `/${eventPathInput}`;
-    const finalLink = `${baseUrl}${path}?ref=${affiliate.referralCode}`;
-    setGeneratedLink(finalLink);
-    toast({ title: "Tautan Dibuat!", description: "Tautan afiliasi Anda telah berhasil dibuat." });
+    if (!bankDetails.name || !bankDetails.accountNumber || !bankDetails.accountHolderName) {
+        toast({ title: 'Error', description: 'Please provide complete bank details.' });
+        return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.functions.invoke('request-withdrawal', {
+        body: { 
+            requested_amount: amount,
+            bank_name: bankDetails.name,
+            bank_account_number: bankDetails.accountNumber,
+            bank_account_holder_name: bankDetails.accountHolderName,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Success', description: 'Withdrawal request submitted.' });
+      setWithdrawalAmount('');
+      // Optionally clear bank details or keep them for next time
+      fetchAffiliateData(user.id); // Refresh data
+    } catch (error: any) {
+      console.error('Error requesting withdrawal:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to submit withdrawal request.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleCopyReferralCode = () => {
+    if (stats?.referralCode) {
+      navigator.clipboard.writeText(`${window.location.origin}/register?ref=${stats.referralCode}`)
+        .then(() => toast({ title: 'Copied!', description: 'Referral link copied to clipboard.' }))
+        .catch(err => toast({ title: 'Error', description: 'Could not copy link.' }));
+    }
   };
 
-  if (!affiliate) {
-    return <div className="container py-12">Memuat data afiliasi...</div>;
+
+  if (loading && !stats) { // Show full page loader only on initial load
+    return <div className="container mx-auto p-4">Loading affiliate dashboard...</div>;
   }
 
-  const relativeAffiliateLink = `/?ref=${affiliate.referralCode}`; // General affiliate link
+  if (!user) {
+    return <div className="container mx-auto p-4">Please log in to view your affiliate dashboard.</div>;
+  }
+  
+  if (!stats?.referralCode && !loading) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Become an Affiliate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>You are not yet an affiliate. Please contact an administrator to activate your affiliate account.</p>
+            {/* Optionally, add a button here to call an 'request-affiliate-activation' function if you build one */}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  // Placeholder values for new stats cards based on the image
-  const stats = {
-    totalCommission: 0,
-    pendingBalance: 0,
-    totalClicks: 0,
-    totalConversions: 0,
-  };
 
   return (
-    <div className="container py-12 space-y-8">
-      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Dasbor Afiliasi Anda</h1>
-          <p className="text-muted-foreground">
-            Selamat datang! Di sini Anda dapat membuat tautan afiliasi unik, melacak kinerja, dan mengelola penghasilan Anda dengan BPro Tiket.
-          </p>
-        </div>
-        {/* Bagian nama pengguna dan tombol keluar dihapus dari sini */}
-      </div>
+    <div className="container mx-auto p-4 space-y-8">
+      <h1 className="text-3xl font-bold">Affiliate Dashboard</h1>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Komisi Diperoleh</CardTitle>
-            <TrendingUp className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Rp {stats.totalCommission.toLocaleString()}</div>
-            {/* <p className="text-xs text-muted-foreground">+X% dari bulan lalu</p> */}
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Tersedia (Pending)</CardTitle>
-            <Wallet className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Rp {stats.pendingBalance.toLocaleString()}</div>
-            <Button variant="outline" size="sm" className="mt-2 text-xs h-7" onClick={() => alert('Minta Penarikan belum difungsikan.')}>Minta Penarikan</Button>
-            <p className="text-xs text-muted-foreground mt-1">
-              Info bank belum lengkap. <Link href="/dashboard/user/settings" className="text-primary hover:underline">Lengkapi di sini</Link>.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Klik Tautan</CardTitle>
-            <ExternalLink className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalClicks}</div>
-            <p className="text-xs text-muted-foreground">(Segera Hadir: Pelacakan klik detail)</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Konversi (Penjualan)</CardTitle>
-            <ShoppingCart className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalConversions}</div>
-             {/* <p className="text-xs text-muted-foreground">+X penjualan bulan ini</p> */}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Link Generator Card */}
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center text-xl">
-            <LinkIcon className="mr-2 h-6 w-6 text-accent" />Buat Tautan Afiliasi Anda
-          </CardTitle>
-          <CardDescription>
-            Gunakan kode afiliasi unik Anda: <strong className="text-accent">{affiliate.referralCode}</strong>. 
-            Pilih acara di bawah ini atau masukkan URL acara untuk membuat tautan referal. 
-            Bagikan tautan tersebut untuk mendapatkan komisi dari setiap penjualan tiket.
-          </CardDescription>
+          <CardTitle>Your Referral Code</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <Label htmlFor="eventPath" className="text-sm font-medium">URL atau Path Halaman Acara</Label>
-            <Input 
-              id="eventPath" 
-              placeholder="/events/id-acara-unik" 
-              value={eventPathInput}
-              onChange={(e) => setEventPathInput(e.target.value)}
-              className="mt-1"
-            />
-            <p className="text-xs text-muted-foreground mt-1">Ketik path acara (mis., /events/id-acara) atau pilih dari daftar di bawah.</p>
-          </div>
-
-          <div>
-            <Label htmlFor="searchEvent" className="text-sm font-medium">Cari Acara untuk Ditautkan</Label>
-            <div className="relative mt-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                id="searchEvent" 
-                placeholder="Ketik nama acara..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9" 
-              />
-            </div>
-          </div>
-
-          {filteredEvents.length > 0 && (
-            <div>
-              <Label className="text-sm font-medium">Pilih Acara (Opsional)</Label>
-              <p className="text-xs text-muted-foreground mb-1">Klik acara untuk mengisi path-nya secara otomatis.</p>
-              <ScrollArea className="h-40 w-full rounded-md border p-2 bg-secondary/20">
-                {filteredEvents.map(event => (
-                  <div 
-                    key={event.id} 
-                    onClick={() => handleEventSelect(event)}
-                    className="p-2 hover:bg-accent/20 rounded-md cursor-pointer text-sm"
-                  >
-                    {event.name} <span className="text-xs text-muted-foreground ml-1">(/events/{event.id})</span>
-                  </div>
-                ))}
-              </ScrollArea>
-            </div>
-          )}
-          
-          <Button onClick={handleGenerateLink} className="bg-primary hover:bg-primary/90">
-            <LinkIcon className="mr-2 h-4 w-4" /> Buat Tautan
-          </Button>
-
-          {generatedLink && (
-            <div className="space-y-1">
-              <Label className="text-sm font-medium">Tautan Afiliasi Anda:</Label>
-              <div className="flex items-center gap-2 rounded-md border bg-muted p-3">
-                <p className="text-sm font-mono break-all flex-grow">{generatedLink}</p>
-                <CopyButton textToCopy={generatedLink} label="Tautan Afiliasi" />
-              </div>
-              <p className="text-xs text-muted-foreground">Bagikan tautan ini. Ketika pengguna membeli tiket melaluinya, Anda akan mendapatkan komisi.</p>
-            </div>
+        <CardContent className="flex items-center space-x-4">
+          {stats?.referralCode ? (
+            <>
+              <Input type="text" value={stats.referralCode} readOnly className="font-mono text-lg" />
+              <Button onClick={handleCopyReferralCode}>Copy Link</Button>
+            </>
+          ) : (
+            <p>Your referral code is not yet active. Contact admin.</p>
           )}
         </CardContent>
       </Card>
-      
-      {/* General Affiliate Link - Kept from previous design if still relevant */}
-      <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl"><LinkIcon className="mr-2 h-6 w-6 text-accent" />Link Afiliasi Umum Anda</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-              <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Kode Referral Umum Anda:</p>
-                  <div className="flex items-center">
-                    <span className="font-mono text-lg text-accent bg-accent/10 px-3 py-1.5 rounded-md">{affiliate.referralCode}</span>
-                    <CopyButton textToCopy={affiliate.referralCode} label="Kode Referral" />
-                  </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Link Afiliasi Umum (untuk dibagikan ke beranda):</p>
-                <div className="bg-secondary/30 dark:bg-secondary/20 p-3 rounded-md shadow-sm">
-                  <div className="flex items-center mb-2">
-                      <LinkIcon className="h-4 w-4 mr-2 text-primary"/>
-                      <span className="font-mono text-sm text-foreground break-all block">
-                          {`[Alamat Website Anda]${relativeAffiliateLink}`}
-                      </span>
-                  </div>
-                  <CopyButton textToCopy={relativeAffiliateLink} label="Link Afiliasi Umum" useOrigin={true} />
-                  <p className="text-xs text-muted-foreground mt-2">Klik tombol salin di atas. `[Alamat Website Anda]` akan otomatis diganti dengan domain website saat ini ketika disalin.</p>
-                </div>
-              </div>
-          </CardContent>
+
+      <div className="grid md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader><CardTitle>Total Referrals</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{stats?.totalReferrals ?? 0}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Total Commissions Paid</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">Rp {stats?.totalCommissionsEarned.toLocaleString('id-ID') ?? 0}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Available Balance (Pending)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">Rp {stats?.availableBalance.toLocaleString('id-ID') ?? 0}</p></CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Request Withdrawal</CardTitle></CardHeader>
+        <CardContent>
+          <form onSubmit={handleRequestWithdrawal} className="space-y-4">
+            <div>
+              <Label htmlFor="withdrawalAmount">Amount to Withdraw (IDR)</Label>
+              <Input id="withdrawalAmount" type="number" value={withdrawalAmount} onChange={(e) => setWithdrawalAmount(e.target.value)} placeholder="e.g., 50000" required />
+            </div>
+            <div>
+              <Label htmlFor="bankName">Bank Name</Label>
+              <Input id="bankName" type="text" value={bankDetails.name} onChange={(e) => setBankDetails({...bankDetails, name: e.target.value})} placeholder="e.g., Bank Central Asia" required />
+            </div>
+            <div>
+              <Label htmlFor="accountNumber">Bank Account Number</Label>
+              <Input id="accountNumber" type="text" value={bankDetails.accountNumber} onChange={(e) => setBankDetails({...bankDetails, accountNumber: e.target.value})} placeholder="e.g., 1234567890" required />
+            </div>
+            <div>
+              <Label htmlFor="accountHolderName">Bank Account Holder Name</Label>
+              <Input id="accountHolderName" type="text" value={bankDetails.accountHolderName} onChange={(e) => setBankDetails({...bankDetails, accountHolderName: e.target.value})} placeholder="e.g., John Doe" required />
+            </div>
+            <Button type="submit" disabled={loading || !stats || stats.availableBalance <= 0}>
+              {loading ? 'Submitting...' : 'Request Withdrawal'}
+            </Button>
+          </form>
+        </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle>My Commissions</CardTitle></CardHeader>
+        <CardContent>
+          {commissions.length === 0 ? (<p>No commissions yet.</p>) : (
+            <ul className="space-y-2">
+              {commissions.map(c => (
+                <li key={c.id} className="p-2 border rounded">
+                  Amount: Rp {c.amount.toLocaleString('id-ID')} - Status: {c.status} - Date: {new Date(c.created_at).toLocaleDateString()}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Existing sections from previous design, placed below the new generator */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 mt-8">
-        <div className="lg:col-span-1 space-y-6">
-            <Card className="shadow-lg">
-                <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><UserCircle className="mr-2 h-6 w-6 text-accent" />Profil Saya</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                    <p><strong>Nama:</strong> {affiliate.name}</p>
-                    <p><strong>Email:</strong> {affiliate.email}</p>
-                </CardContent>
-                 <CardFooter>
-                    <Button variant="outline" className="w-full" asChild>
-                        <Link href="/dashboard/user/settings">Ubah Profil & Info Bank</Link>
-                    </Button>
-                </CardFooter>
-            </Card>
-        </div>
-
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center text-xl"><Users className="mr-2 h-6 w-6 text-accent" />Penjualan Referral</CardTitle>
-              <CardDescription>Penjualan yang dilakukan melalui kode referral Anda.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Acara</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead className="text-right">Komisi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {affiliate.referredSales.length > 0 ? affiliate.referredSales.map((sale) => (
-                    <TableRow key={sale.bookingId}>
-                      <TableCell>{sale.eventName}</TableCell>
-                      <TableCell>{new Date(sale.date).toLocaleDateString('id-ID')}</TableCell>
-                      <TableCell className="text-right">Rp {sale.commission.toLocaleString()}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center">Belum ada penjualan referral.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center text-xl"><Gift className="mr-2 h-6 w-6 text-accent" />Riwayat Penarikan</CardTitle>
-              <CardDescription>Penarikan Anda yang lalu dan yang tertunda.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Jumlah</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {affiliate.withdrawalHistory.length > 0 ? affiliate.withdrawalHistory.map((withdrawal, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{new Date(withdrawal.date).toLocaleDateString('id-ID')}</TableCell>
-                      <TableCell>{withdrawal.status === 'Completed' ? 'Selesai' : withdrawal.status === 'Processing' ? 'Diproses' : withdrawal.status === 'Pending' ? 'Tertunda' : withdrawal.status}</TableCell>
-                      <TableCell className="text-right">Rp {withdrawal.amount.toLocaleString()}</TableCell>
-                    </TableRow>
-                  )) : (
-                     <TableRow>
-                      <TableCell colSpan={3} className="text-center">Tidak ada riwayat penarikan.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Card>
+        <CardHeader><CardTitle>Withdrawal History</CardTitle></CardHeader>
+        <CardContent>
+          {withdrawals.length === 0 ? (<p>No withdrawal requests yet.</p>) : (
+            <ul className="space-y-2">
+              {withdrawals.map(w => (
+                <li key={w.id} className="p-2 border rounded">
+                  Amount: Rp {w.requested_amount.toLocaleString('id-ID')} - Status: {w.status} - Requested: {new Date(w.requested_at).toLocaleDateString()}
+                  {w.processed_at && ` - Processed: ${new Date(w.processed_at).toLocaleDateString()}`}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-    

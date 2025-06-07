@@ -1,110 +1,164 @@
-
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'supabase';
 import { corsHeaders } from '../_shared/cors.ts';
 
 interface ValidateTicketPayload {
-  bookingId: string;
+  booking_id: string;
 }
 
-Deno.serve(async (req) => {
+// Helper function to check if user is admin (consistent with other admin functions)
+async function isAdmin(supabase: SupabaseClient): Promise<boolean> {
+  const { data: { user } , error } = await supabase.auth.getUser();
+  if (error || !user) return false;
+  
+  const SUPER_ADMIN_UID = Deno.env.get('SUPER_ADMIN_UID');
+  if (SUPER_ADMIN_UID && user.id === SUPER_ADMIN_UID) {
+    return true;
+  }
+  
+  // Fetch roles from 'users' table
+  const { data: userData, error: userFetchError } = await supabase
+    .from('users')
+    .select('roles')
+    .eq('id', user.id)
+    .single();
+
+  if (userFetchError || !userData || !userData.roles) {
+    // Log error if needed, or handle if user not found in 'users' table but exists in 'auth.users'
+    return false;
+  }
+  
+  // Assuming UserRole is 'admin' | 'affiliate' | 'customer'
+  // This requires UserRole type to be available or defined if strict typing is needed here.
+  // For simplicity, casting to any[] or string[] if UserRole type is not imported/defined.
+  return (userData.roles as string[]).includes('admin');
+}
+
+// Define the main request handler function
+export const ticketValidationHandler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-  // Pastikan hanya admin yang bisa mengakses, atau service_role jika dipanggil dari backend lain
-  // Untuk keamanan, sebaiknya validasi JWT admin di sini jika dipanggil langsung dari frontend admin.
-  // Contoh:
-  // const authHeader = req.headers.get('Authorization');
-  // if (!authHeader) return new Response(JSON.stringify({ error: 'Missing auth header' }), { status: 401 });
-  // const token = authHeader.replace('Bearer ', '');
-  // const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-  // if (userError || !user) return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
-  // Check if user is admin based on your roles system.
 
   try {
-    const { bookingId }: ValidateTicketPayload = await req.json();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
-    if (!bookingId) {
-      return new Response(JSON.stringify({ error: 'Booking ID is required.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
+      console.error('Supabase environment variables not set for validate-ticket.');
+      return new Response(JSON.stringify({ error: 'Server configuration error.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 
+      });
+    }
+    
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Missing authorization header.' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 
+        });
+    }
+
+    // Client for checking admin status with user's JWT
+    const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+    });
+
+    const adminCheck = await isAdmin(supabaseUserClient);
+    if (!adminCheck) {
+      return new Response(JSON.stringify({ error: 'Unauthorized. Admin access required.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 
       });
     }
 
-    const supabaseAdmin: SupabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const payload: ValidateTicketPayload = await req.json();
+    const { booking_id } = payload;
 
+    if (!booking_id) {
+      return new Response(JSON.stringify({ error: 'Invalid payload. booking_id is required.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 
+      });
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // Fetch the booking
     const { data: booking, error: fetchError } = await supabaseAdmin
       .from('bookings')
-      .select('*') // Ambil semua field untuk ditampilkan di admin
-      .eq('id', bookingId)
+      .select('id, payment_status, checked_in, event_id, user_id, user_name, event_name, selected_tier_name, tickets') // Include details to return
+      .eq('id', booking_id)
       .single();
 
     if (fetchError || !booking) {
-      console.error('Error fetching booking or booking not found:', fetchError);
-      return new Response(JSON.stringify({ error: 'Tiket tidak ditemukan atau tidak valid.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404,
+      console.error('Error fetching booking or not found:', fetchError);
+      return new Response(JSON.stringify({ 
+        status: 'not_found', 
+        message: 'Booking ID not found.',
+        booking_details: null 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 
       });
     }
 
     if (booking.payment_status !== 'paid') {
       return new Response(JSON.stringify({ 
-        error: `Pembayaran tiket belum lunas (Status: ${booking.payment_status}).`,
-        booking_details: booking,
-        status_code: 'PAYMENT_NOT_CONFIRMED'
+        status: 'not_paid', 
+        message: `Ticket not paid. Payment status: ${booking.payment_status}.`,
+        booking_details: booking 
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402, // Payment Required
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 
       });
     }
 
     if (booking.checked_in) {
       return new Response(JSON.stringify({ 
-        error: `Tiket ini sudah digunakan (Check-in pada: ${booking.checked_in_at ? new Date(booking.checked_in_at).toLocaleString('id-ID') : 'N/A'}).`,
-        booking_details: booking,
-        status_code: 'ALREADY_CHECKED_IN'
+        status: 'already_checked_in', 
+        message: 'This ticket has already been checked in.',
+        booking_details: booking
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409, // Conflict
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 
       });
     }
 
-    // Jika semua validasi lolos, tiket valid untuk check-in
-    // Sekarang, kita bisa update status check-in jika ada aksi 'check-in'
-    if (req.method === 'POST' && req.url.includes('?action=check-in')) { // Contoh jika ada parameter action
-        const { error: updateError } = await supabaseAdmin
-            .from('bookings')
-            .update({ checked_in: true, checked_in_at: new Date().toISOString() })
-            .eq('id', booking.id);
+    // If valid, not paid, and not checked-in, proceed to check-in
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabaseAdmin
+      .from('bookings')
+      .update({ checked_in: true, checked_in_at: now })
+      .eq('id', booking_id);
 
-        if (updateError) {
-            console.error('Error updating check-in status:', updateError);
-            return new Response(JSON.stringify({ error: 'Gagal melakukan check-in tiket.', details: updateError.message }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
-            });
-        }
-        // Ambil ulang data booking setelah update
-        const { data: updatedBooking } = await supabaseAdmin.from('bookings').select('*').eq('id', bookingId).single();
-        return new Response(JSON.stringify({ 
-            message: 'Tiket berhasil di check-in!',
-            booking_details: updatedBooking,
-            status_code: 'CHECK_IN_SUCCESSFUL'
-        }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
-        });
+    if (updateError) {
+      console.error('Error updating booking for check-in:', updateError);
+      return new Response(JSON.stringify({ 
+        status: 'update_failed', 
+        message: 'Failed to update booking for check-in.',
+        booking_details: booking
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 
+      });
     }
-
+    
+    // Fetch the updated booking details to return
+     const { data: updatedBooking, error: fetchUpdatedError } = await supabaseAdmin
+      .from('bookings')
+      .select('id, payment_status, checked_in, checked_in_at, event_id, user_id, user_name, event_name, selected_tier_name, tickets')
+      .eq('id', booking_id)
+      .single();
 
     return new Response(JSON.stringify({ 
-      message: 'Tiket valid dan siap untuk check-in.',
-      booking_details: booking,
-      status_code: 'VALID_FOR_CHECK_IN'
+      status: 'success', 
+      message: 'Ticket successfully validated and checked in.',
+      booking_details: updatedBooking || booking // Fallback to booking if fetch fails, though unlikely
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 
     });
 
   } catch (error) {
-    console.error('Unhandled error in validate-ticket:', error);
-    return new Response(JSON.stringify({ error: 'Kesalahan internal server saat validasi tiket.' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+    console.error('Error in validate-ticket function:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error.' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 
     });
   }
-});
+};
+
+// Serve the handler
+Deno.serve(ticketValidationHandler);

@@ -3,15 +3,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MOCK_COUPONS, LOCAL_STORAGE_COUPONS_KEY } from "@/lib/constants";
+// import { MOCK_COUPONS, LOCAL_STORAGE_COUPONS_KEY } from "@/lib/constants"; // No longer using localStorage
 import type { Coupon } from "@/lib/types";
+import { createBrowserClient } from '@supabase/ssr'; // Import Supabase client
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Switch } from "@/components/ui/switch";
 import { PlusCircle, Trash2, BadgePercent, RotateCcw, Edit } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, formatISO } from "date-fns"; // Added formatISO
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,36 +24,54 @@ interface FormattedCoupon extends Coupon {
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState<FormattedCoupon[]>([]);
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-  const loadCoupons = () => {
-    let currentCoupons: Coupon[];
+  const loadCoupons = async () => {
+    setLoading(true);
     try {
-      const storedCouponsString = localStorage.getItem(LOCAL_STORAGE_COUPONS_KEY);
-      if (storedCouponsString) {
-        currentCoupons = JSON.parse(storedCouponsString);
-      } else {
-        currentCoupons = MOCK_COUPONS;
-        localStorage.setItem(LOCAL_STORAGE_COUPONS_KEY, JSON.stringify(MOCK_COUPONS));
-      }
-    } catch (error) {
-      console.error("Gagal memuat atau mem-parse kupon dari localStorage:", error);
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .order('expires_at', { ascending: false, nullsFirst: false }); // Show non-expiring first or last based on preference
+
+      if (error) throw error;
+
+      const mappedAndFormatted = data?.map((dbCoupon: any) => { // dbCoupon is snake_case from Supabase
+        const appCoupon: Coupon = { // Map to camelCase Coupon type from lib/types.ts
+          id: dbCoupon.id,
+          code: dbCoupon.code,
+          description: dbCoupon.description,
+          discountType: dbCoupon.discount_type, // Assuming 'fixed_amount' in DB matches 'fixed' in type or type needs update
+          discountValue: dbCoupon.discount_value,
+          expiryDate: dbCoupon.expires_at, // Keep as ISO string
+          isActive: dbCoupon.is_active,
+          usageLimit: dbCoupon.max_uses,
+          timesUsed: dbCoupon.times_used,
+          minPurchase: dbCoupon.min_purchase_amount,
+        };
+        const expiry = appCoupon.expiryDate ? parseISO(appCoupon.expiryDate) : null;
+        return {
+          ...appCoupon, // Spread the mapped camelCase coupon
+          formattedExpiryDate: expiry ? format(expiry, "PP", { locale: idLocale }) : "Tidak ada batas",
+          isExpired: expiry ? new Date() > expiry : false,
+        };
+      }) || [];
+      setCoupons(mappedAndFormatted);
+    } catch (error: any) {
+      console.error("Gagal memuat kupon dari Supabase:", error);
       toast({
         title: "Gagal Memuat Kupon",
-        description: "Menggunakan data kupon default.",
+        description: error.message || "Terjadi masalah saat mengambil data kupon.",
         variant: "destructive",
       });
-      currentCoupons = MOCK_COUPONS;
+      setCoupons([]);
+    } finally {
+      setLoading(false);
     }
-    
-    const formatted = currentCoupons.map(coupon => {
-      const expiry = parseISO(coupon.expiryDate);
-      return {
-        ...coupon,
-        formattedExpiryDate: format(expiry, "PP", { locale: idLocale }),
-        isExpired: new Date() > expiry,
-      };
-    }).sort((a, b) => parseISO(b.expiryDate).getTime() - parseISO(a.expiryDate).getTime()); // Sort by expiry date descending
-    setCoupons(formatted);
   };
 
   useEffect(() => {
@@ -60,71 +79,86 @@ export default function CouponsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleToggleActive = (id: string, currentIsActive: boolean) => {
+  const handleToggleActive = async (couponToToggle: FormattedCoupon) => {
     try {
-      const updatedCoupons = coupons.map(coupon => 
-        coupon.id === id ? { ...coupon, isActive: !currentIsActive } : coupon
-      );
-      // Extract non-formatted coupon for storage
-      const storableCoupons = updatedCoupons.map(({ formattedExpiryDate, isExpired, ...rest }) => rest);
-      localStorage.setItem(LOCAL_STORAGE_COUPONS_KEY, JSON.stringify(storableCoupons));
-      loadCoupons(); // Reload and reformat
+      const newIsActiveStatus = !couponToToggle.isActive; // Use isActive from FormattedCoupon
+      // Call update-coupon function to toggle status
+      // We need to send all required fields for the update-coupon function,
+      // or modify update-coupon to handle partial updates for 'is_active'
+      // For now, let's assume update-coupon can handle just the active status change if other fields are optional
+      // Or, more robustly, fetch the full coupon and send all its data with the changed is_active.
+      // The `update-coupon` function expects more fields.
+      // A simpler approach for just toggling active status might be a direct DB update if RLS allows.
+      // Or create a dedicated `toggle-coupon-status` function.
+      // For now, using the existing `update-coupon` function:
+      // Map camelCase FormattedCoupon back to snake_case for the Edge Function
+      const payloadForUpdate = {
+        coupon_id: couponToToggle.id,
+        code: couponToToggle.code,
+        discount_type: couponToToggle.discountType, // Map back
+        discount_value: couponToToggle.discountValue, // Map back
+        expires_at: couponToToggle.expiryDate ? formatISO(parseISO(couponToToggle.expiryDate)) : null, // Map back
+        is_active: newIsActiveStatus,
+        max_uses: couponToToggle.usageLimit, // Map back
+        min_purchase_amount: couponToToggle.minPurchase, // Map back
+        description: couponToToggle.description,
+        // applicable_event_ids: couponToToggle.applicable_event_ids, // if used
+      };
+      
+      const { error } = await supabase.functions.invoke('update-coupon', {
+        body: payloadForUpdate,
+      });
+
+      if (error) throw error;
+
+      loadCoupons(); // Reload coupons
       toast({
         title: `Status Kupon Diubah`,
-        description: `Kupon ${id} sekarang ${!currentIsActive ? 'aktif' : 'tidak aktif'}.`,
+        description: `Kupon ${couponToToggle.code} sekarang ${newIsActiveStatus ? 'aktif' : 'tidak aktif'}.`,
       });
-    } catch (error) {
+    } catch (error: any) {
        console.error("Gagal mengubah status kupon:", error);
         toast({
           title: "Gagal Mengubah Status",
+          description: error.message || "Terjadi masalah.",
           variant: "destructive",
         });
     }
   };
   
-  const handleDeleteCoupon = (id: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus kupon ${id}?`)) {
+  const handleDeleteCoupon = async (id: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus kupon ${id}? Ini akan menghapusnya dari database.`)) {
       try {
-        const storedCouponsString = localStorage.getItem(LOCAL_STORAGE_COUPONS_KEY);
-        if (storedCouponsString) {
-          let allCoupons: Coupon[] = JSON.parse(storedCouponsString);
-          const updatedCoupons = allCoupons.filter(coupon => coupon.id !== id);
-          localStorage.setItem(LOCAL_STORAGE_COUPONS_KEY, JSON.stringify(updatedCoupons));
-          loadCoupons();
-          toast({
-            title: "Kupon Dihapus",
-            description: `Kupon ${id} telah dihapus.`,
-          });
-        }
-      } catch (error) {
-        console.error("Gagal menghapus kupon:", error);
+        const { error } = await supabase
+          .from('coupons')
+          .delete()
+          .match({ id: id });
+
+        if (error) throw error;
+
+        loadCoupons(); // Reload coupons
+        toast({
+          title: "Kupon Dihapus",
+          description: `Kupon ${id} telah dihapus dari database.`,
+        });
+      } catch (error: any) {
+        console.error("Gagal menghapus kupon dari Supabase:", error);
         toast({
           title: "Gagal Menghapus Kupon",
+          description: error.message || "Terjadi masalah.",
           variant: "destructive",
         });
       }
     }
   };
 
-  const handleResetCoupons = () => {
-    if (confirm("Apakah Anda yakin ingin mereset semua kupon ke daftar awal? Semua kupon yang ditambahkan atau diubah akan hilang.")) {
-      localStorage.setItem(LOCAL_STORAGE_COUPONS_KEY, JSON.stringify(MOCK_COUPONS));
-      loadCoupons();
-      toast({
-        title: "Kupon Direset",
-        description: "Daftar kupon telah dikembalikan ke kondisi awal.",
-      });
-    }
-  };
+  // const handleResetCoupons = () => { // This is no longer relevant with Supabase
+  // };
   
-  // Placeholder for Edit Coupon functionality
-  const handleEditCoupon = (id: string) => {
-    toast({
-      title: "Fitur Dalam Pengembangan",
-      description: `Edit untuk kupon ${id} belum tersedia.`,
-    });
-    // router.push(`/dashboard/admin/coupons/edit/${id}`); // Potential future route
-  };
+  // Placeholder for Edit Coupon functionality is removed as Link will be used directly
+  // const handleEditCoupon = (id: string) => {
+  //   // router.push(`/dashboard/admin/coupons/edit/${id}`); 
+  // };
 
 
   return (
@@ -137,14 +171,12 @@ export default function CouponsPage() {
               <div>
                 <CardTitle className="text-3xl font-bold">Kelola Kupon</CardTitle>
                 <CardDescription className="text-primary-foreground/80">
-                  Buat, lihat, dan kelola kupon diskon untuk platform Anda.
+                  Buat, lihat, dan kelola kupon diskon untuk platform Anda dari database.
                 </CardDescription>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleResetCoupons} variant="outline" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
-                <RotateCcw className="mr-2 h-4 w-4" /> Reset Kupon
-              </Button>
+              {/* Reset button removed as it's for localStorage */}
               <Button asChild variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <Link href="/dashboard/admin/coupons/new">
                   <PlusCircle className="mr-2 h-4 w-4" /> Tambah Kupon Baru
@@ -190,20 +222,22 @@ export default function CouponsPage() {
                         {coupon.isActive && !coupon.isExpired ? 'Aktif' : (coupon.isExpired ? 'Kadaluwarsa' : 'Nonaktif')}
                       </Badge>
                     </TableCell>
-                    <TableCell>{coupon.timesUsed} / {coupon.usageLimit || '∞'}</TableCell>
+                    <TableCell>{coupon.timesUsed} / {coupon.usageLimit || '∞'}</TableCell> 
                     <TableCell className="text-center">
                       <Switch
                         checked={coupon.isActive && !coupon.isExpired}
-                        onCheckedChange={() => handleToggleActive(coupon.id, coupon.isActive)}
-                        disabled={coupon.isExpired}
+                        onCheckedChange={() => handleToggleActive(coupon)}
+                        disabled={coupon.isExpired} // Still disable if expired, as activating an expired coupon is odd
                         aria-label="Aktifkan kupon"
                       />
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center space-x-1">
-                         <Button variant="outline" size="icon" onClick={() => handleEditCoupon(coupon.id)} title="Edit Kupon (Belum Tersedia)">
-                          <Edit className="h-4 w-4" />
-                           <span className="sr-only">Edit</span>
+                         <Button variant="outline" size="icon" asChild title="Edit Kupon">
+                           <Link href={`/dashboard/admin/coupons/${coupon.id}/edit`}>
+                             <Edit className="h-4 w-4" />
+                             <span className="sr-only">Edit</span>
+                           </Link>
                         </Button>
                         <Button variant="destructive" size="icon" onClick={() => handleDeleteCoupon(coupon.id)} title="Hapus Kupon">
                           <Trash2 className="h-4 w-4" />
