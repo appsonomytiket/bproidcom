@@ -15,16 +15,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SlidersHorizontal, BarChart2, Banknote, Save, Loader2 } from "lucide-react";
+import { SlidersHorizontal, BarChart2, Banknote, Save, Loader2, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useTransition } from "react"; // Added useEffect
+import { useEffect, useTransition } from "react"; 
+import { LOCAL_STORAGE_ANALYTICS_KEY, LOCAL_STORAGE_PAYMENT_KEY, LOCAL_STORAGE_MIDTRANS_KEY } from "@/lib/constants";
 
 const analyticsFormSchema = z.object({
   metaPixelId: z.string().optional(),
   googleAnalyticsId: z.string().optional(),
 });
-
 type AnalyticsFormValues = z.infer<typeof analyticsFormSchema>;
 
 const paymentFormSchema = z.object({
@@ -35,33 +36,41 @@ const paymentFormSchema = z.object({
     message: "Nomor WhatsApp tidak valid (contoh: +6281234567890).",
   }),
 });
-
 type PaymentFormValues = z.infer<typeof paymentFormSchema>;
 
-const LOCAL_STORAGE_ANALYTICS_KEY = 'bproid_admin_analytics_settings';
-const LOCAL_STORAGE_PAYMENT_KEY = 'bproid_admin_payment_settings';
+const midtransFormSchema = z.object({
+  midtransClientKey: z.string().min(1, { message: "Client Key Midtrans harus diisi."}),
+  midtransServerKey: z.string().min(1, { message: "Server Key Midtrans harus diisi."}),
+  isProduction: z.boolean().default(false),
+});
+type MidtransFormValues = z.infer<typeof midtransFormSchema>;
 
-// Static initial default values
 const initialAnalyticsDefaultValues: AnalyticsFormValues = { metaPixelId: "", googleAnalyticsId: "" };
 const initialPaymentDefaultValues: PaymentFormValues = { bankName: "", accountNumber: "", accountHolderName: "", whatsappConfirmationNumber: "" };
+const initialMidtransDefaultValues: MidtransFormValues = { midtransClientKey: "", midtransServerKey: "", isProduction: false };
 
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [isAnalyticsPending, startAnalyticsTransition] = useTransition();
   const [isPaymentPending, startPaymentTransition] = useTransition();
+  const [isMidtransPending, startMidtransTransition] = useTransition();
 
   const analyticsForm = useForm<AnalyticsFormValues>({
     resolver: zodResolver(analyticsFormSchema),
-    defaultValues: initialAnalyticsDefaultValues, // Use static initial values
+    defaultValues: initialAnalyticsDefaultValues,
   });
 
   const paymentForm = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
-    defaultValues: initialPaymentDefaultValues, // Use static initial values
+    defaultValues: initialPaymentDefaultValues,
   });
 
-  // Load values from localStorage in useEffect
+  const midtransForm = useForm<MidtransFormValues>({
+    resolver: zodResolver(midtransFormSchema),
+    defaultValues: initialMidtransDefaultValues,
+  });
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedAnalyticsSettings = localStorage.getItem(LOCAL_STORAGE_ANALYTICS_KEY);
@@ -70,7 +79,6 @@ export default function SettingsPage() {
           analyticsForm.reset(JSON.parse(storedAnalyticsSettings));
         } catch (e) {
           console.error("Gagal mem-parse pengaturan analitik dari localStorage:", e);
-          // Optionally reset to initial defaults or notify user
         }
       }
 
@@ -82,9 +90,18 @@ export default function SettingsPage() {
           console.error("Gagal mem-parse pengaturan pembayaran dari localStorage:", e);
         }
       }
+      
+      const storedMidtransSettings = localStorage.getItem(LOCAL_STORAGE_MIDTRANS_KEY);
+      if (storedMidtransSettings) {
+        try {
+          midtransForm.reset(JSON.parse(storedMidtransSettings));
+        } catch (e) {
+          console.error("Gagal mem-parse pengaturan Midtrans dari localStorage:", e);
+        }
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs once on mount. analyticsForm and paymentForm are stable.
+  }, []); 
 
 
   function onAnalyticsSubmit(values: AnalyticsFormValues) {
@@ -112,6 +129,20 @@ export default function SettingsPage() {
       });
     });
   }
+  
+  function onMidtransSubmit(values: MidtransFormValues) {
+    startMidtransTransition(() => {
+      console.log("Pengaturan Midtrans:", values);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_MIDTRANS_KEY, JSON.stringify(values));
+      }
+      toast({
+        title: "Pengaturan Midtrans Disimpan",
+        description: "Kredensial Midtrans telah diperbarui (secara lokal). Ingat, untuk produksi, Server Key harus diatur di environment Supabase Function.",
+      });
+    });
+  }
+
 
   return (
     <div className="container py-12 space-y-8">
@@ -127,7 +158,72 @@ export default function SettingsPage() {
             </div>
           </div>
         </CardHeader>
-        {/* Konten pengaturan akan ditambahkan di sini - sudah dipindah ke Card terpisah */}
+      </Card>
+
+      {/* Pengaturan Midtrans */}
+      <Card className="mx-auto max-w-3xl shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl"><CreditCard className="mr-2 h-6 w-6 text-accent" />Pengaturan Midtrans</CardTitle>
+          <CardDescription>Konfigurasi Client Key, Server Key, dan mode environment Midtrans Anda. Server Key sebaiknya diatur sebagai secret di Supabase Edge Function Anda untuk produksi.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <Form {...midtransForm}>
+            <form onSubmit={midtransForm.handleSubmit(onMidtransSubmit)} className="space-y-6">
+              <FormField
+                control={midtransForm.control}
+                name="midtransClientKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Midtrans Client Key</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Masukkan Client Key Midtrans Anda" {...field} />
+                    </FormControl>
+                    <FormDescription>Digunakan di sisi frontend untuk Midtrans Snap.js.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={midtransForm.control}
+                name="midtransServerKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Midtrans Server Key</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Masukkan Server Key Midtrans Anda" {...field} />
+                    </FormControl>
+                    <FormDescription>Digunakan di sisi backend (Supabase Function) untuk otentikasi API. Jaga kerahasiaannya.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={midtransForm.control}
+                name="isProduction"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Mode Produksi Midtrans</FormLabel>
+                      <FormDescription>
+                        Aktifkan jika Anda menggunakan akun Midtrans Produksi. Nonaktifkan untuk Sandbox.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" disabled={isMidtransPending} className="bg-primary hover:bg-primary/90">
+                {isMidtransPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Simpan Pengaturan Midtrans
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
       </Card>
 
       {/* Pelacakan & Analitik */}

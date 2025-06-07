@@ -5,6 +5,9 @@ import { addMonths, formatISO, subDays } from 'date-fns';
 // export const LOCAL_STORAGE_EVENTS_KEY = 'bproid_managed_events'; // No longer primary for events
 export const LOCAL_STORAGE_COUPONS_KEY = 'bproid_managed_coupons';
 export const LOCAL_STORAGE_USER_SETTINGS_KEY_PREFIX = 'bproid_user_settings_';
+export const LOCAL_STORAGE_ANALYTICS_KEY = 'bproid_admin_analytics_settings';
+export const LOCAL_STORAGE_PAYMENT_KEY = 'bproid_admin_payment_settings';
+export const LOCAL_STORAGE_MIDTRANS_KEY = 'bproid_admin_midtrans_settings';
 
 
 export const MOCK_EVENTS: Event[] = [
@@ -81,6 +84,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     totalPrice: 300000,
     bookingDate: '2024-07-20T10:00:00Z',
     paymentStatus: 'pending',
+    checked_in: false,
     // couponCode: undefined, // Example: No coupon used
     // discountAmount: 0,
   },
@@ -98,6 +102,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     paymentStatus: 'paid',
     couponCode: 'DISKON50K', 
     discountAmount: 50000,
+    checked_in: false,
   },
 ];
 
@@ -149,6 +154,7 @@ export const MOCK_RECENT_BOOKINGS_ADMIN: Booking[] = [
     totalPrice: 300000,
     bookingDate: '2024-07-20T10:00:00Z',
     paymentStatus: 'pending',
+    checked_in: false,
   },
   {
     id: 'BK002',
@@ -164,6 +170,8 @@ export const MOCK_RECENT_BOOKINGS_ADMIN: Booking[] = [
     paymentStatus: 'paid',
     couponCode: 'DISKON50K', 
     discountAmount: 50000,
+    checked_in: true,
+    checked_in_at: '2024-09-05T08:30:00Z',
   },
   {
     id: 'BK003',
@@ -177,6 +185,8 @@ export const MOCK_RECENT_BOOKINGS_ADMIN: Booking[] = [
     totalPrice: 300000,
     bookingDate: '2024-07-28T11:00:00Z',
     paymentStatus: 'paid',
+    checked_in: false,
+    ticket_pdf_url: "https://example.com/dummy-ticket.pdf"
   },
   {
     id: 'BK004',
@@ -190,6 +200,7 @@ export const MOCK_RECENT_BOOKINGS_ADMIN: Booking[] = [
     totalPrice: 150000,
     bookingDate: '2024-07-29T16:15:00Z',
     paymentStatus: 'pending',
+    checked_in: false,
   },
 ];
 
